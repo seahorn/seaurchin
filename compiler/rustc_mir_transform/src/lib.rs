@@ -111,6 +111,7 @@ mod sroa;
 mod unreachable_enum_branching;
 mod unreachable_prop;
 mod validate;
+mod add_succ_place_on_borrow;
 
 use rustc_const_eval::check_consts::{self, ConstCx};
 use rustc_mir_dataflow::rustc_peek;
@@ -562,6 +563,7 @@ fn run_optimization_passes<'tcx>(tcx: TyCtxt<'tcx>, body: &mut Body<'tcx>) {
         tcx,
         body,
         &[
+            &add_succ_place_on_borrow::AddSuccPlaceOnBorrow,
             // Before doing anything, remember which items are being mentioned so that the set of items
             // visited does not depend on the optimization level.
             &mentioned_items::MentionedItems,
