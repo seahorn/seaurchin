@@ -1,5 +1,6 @@
 use super::operand::{OperandRef, OperandValue};
 use super::place::PlaceRef;
+use super::SeaPtrKind;
 use super::{FunctionCx, LocalRef};
 
 use crate::base;
@@ -7,6 +8,7 @@ use crate::common::IntPredicate;
 use crate::traits::*;
 use crate::MemFlags;
 
+use arrayvec::ArrayVec;
 use rustc_middle::mir;
 use rustc_middle::ty::cast::{CastTy, IntTy};
 use rustc_middle::ty::layout::{HasTyCtxt, LayoutOf, TyAndLayout};
@@ -15,8 +17,6 @@ use rustc_middle::{bug, span_bug};
 use rustc_session::config::OptLevel;
 use rustc_span::{Span, DUMMY_SP};
 use rustc_target::abi::{self, FieldIdx, FIRST_VARIANT};
-
-use arrayvec::ArrayVec;
 use tracing::{debug, instrument};
 
 impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
@@ -138,16 +138,27 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                 }
                 for (i, operand) in operands.iter_enumerated() {
                     let op = self.codegen_operand(bx, operand);
+                    let lending_ptr = variant_dest.val.llval;
                     // Do not generate stores and GEPis for zero-sized fields.
                     if !op.layout.is_zst() {
+                        // let agg_val = bx.sea_mut_mkbor(lending_ptr);
+                        let _agg_val = lending_ptr;
+                        /* variant_dest.val.llval =
+                        bx.extract_value(agg_val, SeaAliasing::Alias as u64); */
                         let field_index = active_field_index.unwrap_or(i);
                         let field = if let mir::AggregateKind::Array(_) = **kind {
                             let llindex = bx.cx().const_usize(field_index.as_u32().into());
-                            variant_dest.project_index(bx, llindex)
+                            variant_dest.sea_project_index(bx, llindex, &Some(SeaPtrKind::MutBor))
                         } else {
-                            variant_dest.project_field(bx, field_index.as_usize())
+                            variant_dest.sea_project_field(
+                                bx,
+                                field_index.as_usize(),
+                                &Some(SeaPtrKind::MutBor),
+                            )
                         };
                         op.val.store(bx, field);
+                        // ownsem: die since field ptr is not used henceforth
+                        // bx.sea_die(field.val.llval);
                     }
                 }
                 dest.codegen_set_discr(bx, variant_index);
@@ -557,7 +568,11 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                 let mk_ref = move |tcx: TyCtxt<'tcx>, ty: Ty<'tcx>| {
                     Ty::new_ref(tcx, tcx.lifetimes.re_erased, ty, bk.to_mutbl_lossy())
                 };
-                self.codegen_place_to_pointer(bx, place, mk_ref)
+                let ptr_kind = match bk {
+                    mir::BorrowKind::Shared | mir::BorrowKind::Fake(_) => SeaPtrKind::RoBor,
+                    mir::BorrowKind::Mut { kind: _ } => SeaPtrKind::MutBor,
+                };
+                self.codegen_place_to_pointer(bx, place, ptr_kind, mk_ref)
             }
 
             mir::Rvalue::CopyForDeref(place) => {
@@ -566,7 +581,11 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
             mir::Rvalue::AddressOf(mutability, place) => {
                 let mk_ptr =
                     move |tcx: TyCtxt<'tcx>, ty: Ty<'tcx>| Ty::new_ptr(tcx, ty, mutability);
-                self.codegen_place_to_pointer(bx, place, mk_ptr)
+                let ptr_kind = match mutability {
+                    ty::Mutability::Not => SeaPtrKind::RoCpy,
+                    ty::Mutability::Mut => SeaPtrKind::MutCpy,
+                };
+                self.codegen_place_to_pointer(bx, place, ptr_kind, mk_ptr)
             }
 
             mir::Rvalue::Len(place) => {
@@ -799,11 +818,11 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
         &mut self,
         bx: &mut Bx,
         place: mir::Place<'tcx>,
+        addrof_kind: SeaPtrKind,
         mk_ptr_ty: impl FnOnce(TyCtxt<'tcx>, Ty<'tcx>) -> Ty<'tcx>,
     ) -> OperandRef<'tcx, Bx::Value> {
-        let cg_place = self.codegen_place(bx, place.as_ref());
+        let cg_place = self.sea_codegen_place(bx, place.as_ref(), Some(addrof_kind));
         let val = cg_place.val.address();
-
         let ty = cg_place.layout.ty;
         debug_assert!(
             if bx.cx().type_has_metadata(ty) {
@@ -902,6 +921,9 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                     lhs
                 } else {
                     let llty = bx.cx().backend_type(pointee_layout);
+                    // ownsem: ptr.offset is always on a raw ptr
+                    //let agg = bx.sea_mut_mkcpy(lhs);
+                    //let lhs_new = bx.extract_value(agg, SeaAliasing::Alias as u64);
                     bx.inbounds_gep(llty, lhs, &[rhs])
                 }
             }

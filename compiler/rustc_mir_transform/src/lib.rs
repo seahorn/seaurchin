@@ -103,6 +103,7 @@ mod reveal_all;
 mod shim;
 mod ssa;
 // This pass is public to allow external drivers to perform MIR cleanup
+mod add_succ_place_on_borrow;
 pub mod simplify;
 mod simplify_branches;
 mod simplify_comparison_integral;
@@ -562,6 +563,7 @@ fn run_optimization_passes<'tcx>(tcx: TyCtxt<'tcx>, body: &mut Body<'tcx>) {
         tcx,
         body,
         &[
+            &add_succ_place_on_borrow::AddSuccPlaceOnBorrow,
             // Before doing anything, remember which items are being mentioned so that the set of items
             // visited does not depend on the optimization level.
             &mentioned_items::MentionedItems,

@@ -437,6 +437,43 @@ pub enum MetadataType {
     MD_kcfi_type = 36,
 }
 
+/// LLVMMetadataType
+#[derive(Copy, Clone, PartialEq)]
+#[repr(C)]
+pub enum LLVMValueKind {
+    LLVMArgumentValueKind = 0,
+    LLVMBasicBlockValueKind,
+    LLVMMemoryUseValueKind,
+    LLVMMemoryDefValueKind,
+    LLVMMemoryPhiValueKind,
+
+    LLVMFunctionValueKind,
+    LLVMGlobalAliasValueKind,
+    LLVMGlobalIFuncValueKind,
+    LLVMGlobalVariableValueKind,
+    LLVMBlockAddressValueKind,
+    LLVMConstantExprValueKind,
+    LLVMConstantArrayValueKind,
+    LLVMConstantStructValueKind,
+    LLVMConstantVectorValueKind,
+
+    LLVMUndefValueValueKind,
+    LLVMConstantAggregateZeroValueKind,
+    LLVMConstantDataArrayValueKind,
+    LLVMConstantDataVectorValueKind,
+    LLVMConstantIntValueKind,
+    LLVMConstantFPValueKind,
+    LLVMConstantPointerNullValueKind,
+    LLVMConstantTokenNoneValueKind,
+
+    LLVMMetadataAsValueValueKind,
+    LLVMInlineAsmValueKind,
+
+    LLVMInstructionValueKind,
+    LLVMPoisonValueValueKind,
+    LLVMConstantTargetNoneValueKind,
+}
+
 /// LLVMRustAsmDialect
 #[derive(Copy, Clone, PartialEq)]
 #[repr(C)]
@@ -907,7 +944,7 @@ extern "C" {
     pub fn LLVMSetMetadata<'a>(Val: &'a Value, KindID: c_uint, Node: &'a Value);
     pub fn LLVMGlobalSetMetadata<'a>(Val: &'a Value, KindID: c_uint, Metadata: &'a Metadata);
     pub fn LLVMValueAsMetadata(Node: &Value) -> &Metadata;
-
+    pub fn LLVMGetValueKind(Node: &Value) -> LLVMValueKind;
     // Operations on constants of any type
     pub fn LLVMConstNull(Ty: &Type) -> &Value;
     pub fn LLVMGetUndef(Ty: &Type) -> &Value;

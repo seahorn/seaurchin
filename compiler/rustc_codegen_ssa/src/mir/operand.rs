@@ -606,11 +606,18 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
         bx: &mut Bx,
         place_ref: mir::PlaceRef<'tcx>,
     ) -> OperandRef<'tcx, Bx::Value> {
+        self.sea_codegen_consume(bx, place_ref)
+    }
+
+    pub fn sea_codegen_consume(
+        &mut self,
+        bx: &mut Bx,
+        place_ref: mir::PlaceRef<'tcx>,
+    ) -> OperandRef<'tcx, Bx::Value> {
         debug!("codegen_consume(place_ref={:?})", place_ref);
-
         let ty = self.monomorphized_place_ty(place_ref);
+        debug!("codegen_consume(place_ref_ty={:?})", ty);
         let layout = bx.cx().layout_of(ty);
-
         // ZSTs don't require any actual memory access.
         if layout.is_zst() {
             return OperandRef::zero_sized(layout);

@@ -1697,6 +1697,7 @@ symbols! {
         saturating_add,
         saturating_div,
         saturating_sub,
+        sea_mksuc_place,
         self_in_typedefs,
         self_struct_ctor,
         semitransparent,
