@@ -976,6 +976,9 @@ impl<'ll> CodegenCx<'ll, '_> {
 
         ifn!("llvm.assume", fn(i1) -> void);
         ifn!("llvm.prefetch", fn(ptr, t_i32, t_i32, t_i32) -> void);
+        // ownsem intrinsics
+        ifn!("sea_mut_mkbor", fn(ptr) -> ptr);
+        ifn!("sea_mut_mksuc", fn(ptr) -> ptr);
 
         // This isn't an "LLVM intrinsic", but LLVM's optimization passes
         // recognize it like one (including turning it into `bcmp` sometimes)

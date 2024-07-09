@@ -38,4 +38,6 @@ pub trait IntrinsicCallMethods<'tcx>: BackendTypes {
     /// Trait method used to inject `va_end` on the "spoofed" `VaListImpl` before
     /// Rust defined C-variadic functions return.
     fn va_end(&mut self, val: Self::Value) -> Self::Value;
+    fn sea_mut_mkbor(&mut self, ptr: Self::Value) -> Self::Value;
+    fn sea_mut_mksuc(&mut self, ptr: Self::Value) -> Self::Value;
 }

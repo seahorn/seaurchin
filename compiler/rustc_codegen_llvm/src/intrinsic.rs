@@ -598,6 +598,13 @@ impl<'ll, 'tcx> IntrinsicCallMethods<'tcx> for Builder<'_, 'll, 'tcx> {
     fn va_end(&mut self, va_list: &'ll Value) -> &'ll Value {
         self.call_intrinsic("llvm.va_end", &[va_list])
     }
+    fn sea_mut_mkbor(&mut self, ptr: Self::Value) -> Self::Value {
+        self.call_intrinsic("sea_mut_mkbor", &[ptr])
+    }
+
+    fn sea_mut_mksuc(&mut self, ptr: Self::Value) -> Self::Value {
+        self.call_intrinsic("sea_mut_mksuc", &[ptr])
+    }
 }
 
 fn catch_unwind_intrinsic<'ll>(
