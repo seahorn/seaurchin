@@ -13,6 +13,7 @@ use crate::common::{
 };
 use crate::mir::operand::{OperandRef, OperandValue};
 use crate::mir::place::{PlaceRef, PlaceValue};
+use crate::mir::SeaPtrKind;
 use crate::MemFlags;
 
 use rustc_middle::middle::codegen_fn_attrs::CodegenFnAttrs;
@@ -440,4 +441,6 @@ pub trait BuilderMethods<'a, 'tcx>:
     fn zext(&mut self, val: Self::Value, dest_ty: Self::Type) -> Self::Value;
 
     fn apply_attrs_to_cleanup_callsite(&mut self, llret: Self::Value);
+
+    fn ownsem_intrinsic(&mut self, llptr: Self::Value, ptrkind: SeaPtrKind) -> Self::Value;
 }

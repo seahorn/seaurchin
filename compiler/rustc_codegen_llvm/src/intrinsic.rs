@@ -592,18 +592,23 @@ impl<'ll, 'tcx> IntrinsicCallMethods<'tcx> for Builder<'_, 'll, 'tcx> {
     }
 
     fn va_start(&mut self, va_list: &'ll Value) -> &'ll Value {
-        self.call_intrinsic("llvm.va_start", &[va_list])
+        &self.call_intrinsic_nounwind("llvm.va_start", &[va_list])
     }
 
     fn va_end(&mut self, va_list: &'ll Value) -> &'ll Value {
-        self.call_intrinsic("llvm.va_end", &[va_list])
+        self.call_intrinsic_nounwind("llvm.va_end", &[va_list])
     }
-    fn sea_mut_mkbor(&mut self, ptr: Self::Value) -> Self::Value {
-        self.call_intrinsic("sea_mut_mkbor", &[ptr])
+    fn sea_mut_mkbor(&mut self, ptr: Self::Value) -> &'ll Value {
+        &self.call_intrinsic_nounwind("sea_mut_mkbor", &[ptr])
     }
-
-    fn sea_mut_mksuc(&mut self, ptr: Self::Value) -> Self::Value {
-        self.call_intrinsic("sea_mut_mksuc", &[ptr])
+    fn sea_ro_mkbor(&mut self, ptr: Self::Value) -> &'ll Value {
+        self.call_intrinsic_nounwind("sea_ro_mkbor", &[ptr])
+    }
+    fn sea_mut_mkcpy(&mut self, ptr: Self::Value) -> &'ll Value {
+        self.call_intrinsic_nounwind("sea_mut_mkcpy", &[ptr])
+    }
+    fn sea_die(&mut self, ptr: Self::Value) {
+        self.call_intrinsic_nounwind("sea_die", &[ptr]);
     }
 }
 

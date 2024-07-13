@@ -1,4 +1,5 @@
 use super::operand::OperandValue;
+use super::SeaPtrKind;
 use super::{FunctionCx, LocalRef};
 
 use crate::common::IntPredicate;
@@ -154,6 +155,15 @@ impl<'a, 'tcx, V: CodegenObject> PlaceRef<'tcx, V> {
         self,
         bx: &mut Bx,
         ix: usize,
+    ) -> Self {
+        self.sea_project_field(bx, ix, None)
+    }
+    /// Access a field, at a point when the value's case is known.
+    pub fn sea_project_field<Bx: BuilderMethods<'a, 'tcx, Value = V>>(
+        self,
+        bx: &mut Bx,
+        ix: usize,
+        _offset_kind: Option<SeaPtrKind>,
     ) -> Self {
         let field = self.layout.field(bx.cx(), ix);
         let offset = self.layout.fields.offset(ix);
@@ -461,6 +471,16 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
         bx: &mut Bx,
         place_ref: mir::PlaceRef<'tcx>,
     ) -> PlaceRef<'tcx, Bx::Value> {
+        self.sea_codegen_place(bx, place_ref, None)
+    }
+
+    #[instrument(level = "trace", skip(self, bx))]
+    pub fn sea_codegen_place(
+        &mut self,
+        bx: &mut Bx,
+        place_ref: mir::PlaceRef<'tcx>,
+        addrof_kind: Option<SeaPtrKind>,
+    ) -> PlaceRef<'tcx, Bx::Value> {
         let cx = self.cx;
         let tcx = self.cx.tcx();
 
@@ -483,6 +503,10 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
             LocalRef::PendingOperand => {
                 bug!("using still-pending operand local {:?} as place", place_ref);
             }
+        };
+        match addrof_kind {
+            Some(bor) => cg_base.val.llval = bx.ownsem_intrinsic(cg_base.val.llval, bor),
+            _ => {}
         };
         for elem in place_ref.projection[base..].iter() {
             cg_base = match *elem {

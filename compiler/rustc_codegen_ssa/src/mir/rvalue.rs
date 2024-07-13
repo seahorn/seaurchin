@@ -1,13 +1,14 @@
 use super::operand::{OperandRef, OperandValue};
 use super::place::PlaceRef;
 use super::{FunctionCx, LocalRef};
+use super::{SeaAliasing, SeaPtrKind};
 
 use crate::base;
 use crate::common::IntPredicate;
 use crate::traits::*;
 use crate::MemFlags;
 
-use rustc_ast::Mutability;
+use arrayvec::ArrayVec;
 use rustc_middle::mir;
 use rustc_middle::ty::cast::{CastTy, IntTy};
 use rustc_middle::ty::layout::{HasTyCtxt, LayoutOf, TyAndLayout};
@@ -16,7 +17,6 @@ use rustc_middle::{bug, span_bug};
 use rustc_session::config::OptLevel;
 use rustc_span::{Span, DUMMY_SP};
 use rustc_target::abi::{self, FieldIdx, FIRST_VARIANT};
-use arrayvec::ArrayVec;
 use tracing::{debug, instrument};
 
 impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
@@ -126,7 +126,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
             mir::Rvalue::Aggregate(ref kind, ref operands)
                 if !matches!(**kind, mir::AggregateKind::RawPtr(..)) =>
             {
-                let (variant_index, variant_dest, active_field_index) = match **kind {
+                let (variant_index, mut variant_dest, active_field_index) = match **kind {
                     mir::AggregateKind::Adt(_, variant_index, _, _, active_field_index) => {
                         let variant_dest = dest.project_downcast(bx, variant_index);
                         (variant_index, variant_dest, active_field_index)
@@ -138,8 +138,12 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                 }
                 for (i, operand) in operands.iter_enumerated() {
                     let op = self.codegen_operand(bx, operand);
+                    let lending_ptr = variant_dest.val.llval;
                     // Do not generate stores and GEPis for zero-sized fields.
                     if !op.layout.is_zst() {
+                        let agg_val = bx.sea_mut_mkbor(lending_ptr);
+                        variant_dest.val.llval =
+                            bx.extract_value(agg_val, SeaAliasing::Alias as u64);
                         let field_index = active_field_index.unwrap_or(i);
                         let field = if let mir::AggregateKind::Array(_) = **kind {
                             let llindex = bx.cx().const_usize(field_index.as_u32().into());
@@ -148,6 +152,8 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                             variant_dest.project_field(bx, field_index.as_usize())
                         };
                         op.val.store(bx, field);
+                        // ownsem: die since field ptr is not used henceforth
+                        bx.sea_die(field.val.llval);
                     }
                 }
                 dest.codegen_set_discr(bx, variant_index);
@@ -557,7 +563,11 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                 let mk_ref = move |tcx: TyCtxt<'tcx>, ty: Ty<'tcx>| {
                     Ty::new_ref(tcx, tcx.lifetimes.re_erased, ty, bk.to_mutbl_lossy())
                 };
-                self.codegen_place_to_pointer(bx, place, bk.to_mutbl_lossy(), mk_ref)
+                let ptr_kind = match bk {
+                    mir::BorrowKind::Shared | mir::BorrowKind::Fake(_) => SeaPtrKind::RoBor,
+                    mir::BorrowKind::Mut { kind: _ } => SeaPtrKind::MutBor,
+                };
+                self.codegen_place_to_pointer(bx, place, ptr_kind, mk_ref)
             }
 
             mir::Rvalue::CopyForDeref(place) => {
@@ -566,7 +576,11 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
             mir::Rvalue::AddressOf(mutability, place) => {
                 let mk_ptr =
                     move |tcx: TyCtxt<'tcx>, ty: Ty<'tcx>| Ty::new_ptr(tcx, ty, mutability);
-                self.codegen_place_to_pointer(bx, place, mutability,  mk_ptr)
+                let ptr_kind = match mutability {
+                    ty::Mutability::Not => SeaPtrKind::RoCpy,
+                    ty::Mutability::Mut => SeaPtrKind::MutCpy,
+                };
+                self.codegen_place_to_pointer(bx, place, ptr_kind, mk_ptr)
             }
 
             mir::Rvalue::Len(place) => {
@@ -799,26 +813,11 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
         &mut self,
         bx: &mut Bx,
         place: mir::Place<'tcx>,
-        mutbl: Mutability,
+        addrof_kind: SeaPtrKind,
         mk_ptr_ty: impl FnOnce(TyCtxt<'tcx>, Ty<'tcx>) -> Ty<'tcx>,
     ) -> OperandRef<'tcx, Bx::Value> {
-        let mut cg_place = self.codegen_place(bx, place.as_ref());
-        let val = if mutbl.is_mut() {
-          match cg_place.val.address()  {
-            OperandValue::Immediate(v) => {
-                let ret = OperandValue::Immediate(bx.sea_mut_mkbor(v));
-                cg_place.val.llval =  bx.sea_mut_mksuc(v);
-                ret},
-            OperandValue::Pair(v, extra) => {
-                let ret = OperandValue::Pair(bx.sea_mut_mkbor(v), extra);
-                cg_place.val.llval = bx.sea_mut_mksuc(v);
-                ret
-                },
-            _ =>  unreachable!(),
-          }
-        } else {
-          cg_place.val.address()
-        };
+        let cg_place = self.sea_codegen_place(bx, place.as_ref(), Some(addrof_kind));
+        let val = cg_place.val.address();
         let ty = cg_place.layout.ty;
         debug_assert!(
             if bx.cx().type_has_metadata(ty) {
@@ -917,8 +916,10 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                     lhs
                 } else {
                     let llty = bx.cx().backend_type(pointee_layout);
-                    // SID: treat gep as copy
-                    bx.inbounds_gep(llty, lhs, &[rhs])
+                    // ownsem: ptr.offset is always on a raw ptr
+                    let agg = bx.sea_mut_mkcpy(lhs);
+                    let lhs_new = bx.extract_value(agg, SeaAliasing::Alias as u64);
+                    bx.inbounds_gep(llty, lhs_new, &[rhs])
                 }
             }
             mir::BinOp::Shl | mir::BinOp::ShlUnchecked => {

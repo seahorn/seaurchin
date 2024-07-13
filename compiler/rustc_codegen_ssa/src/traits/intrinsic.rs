@@ -39,5 +39,7 @@ pub trait IntrinsicCallMethods<'tcx>: BackendTypes {
     /// Rust defined C-variadic functions return.
     fn va_end(&mut self, val: Self::Value) -> Self::Value;
     fn sea_mut_mkbor(&mut self, ptr: Self::Value) -> Self::Value;
-    fn sea_mut_mksuc(&mut self, ptr: Self::Value) -> Self::Value;
+    fn sea_ro_mkbor(&mut self, ptr: Self::Value) -> Self::Value;
+    fn sea_mut_mkcpy(&mut self, ptr: Self::Value) -> Self::Value;
+    fn sea_die(&mut self, ptr: Self::Value);
 }

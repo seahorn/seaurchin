@@ -103,6 +103,7 @@ mod reveal_all;
 mod shim;
 mod ssa;
 // This pass is public to allow external drivers to perform MIR cleanup
+mod add_succ_place_on_borrow;
 pub mod simplify;
 mod simplify_branches;
 mod simplify_comparison_integral;
@@ -111,7 +112,6 @@ mod sroa;
 mod unreachable_enum_branching;
 mod unreachable_prop;
 mod validate;
-mod add_succ_place_on_borrow;
 
 use rustc_const_eval::check_consts::{self, ConstCx};
 use rustc_mir_dataflow::rustc_peek;

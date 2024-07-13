@@ -42,6 +42,19 @@ enum CachedLlbb<T> {
     Skip,
 }
 
+#[repr(u64)]
+pub enum SeaAliasing {
+    Alias = 0u64,
+    _Succ = 1u64, // This variant is not constructed by rustc. It is part of llvm pipeline.
+}
+#[derive(Debug)]
+pub enum SeaPtrKind {
+    MutBor,
+    RoBor,
+    MutCpy,
+    RoCpy,
+}
+
 /// Master context for codegenning from MIR.
 pub struct FunctionCx<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> {
     instance: Instance<'tcx>,
