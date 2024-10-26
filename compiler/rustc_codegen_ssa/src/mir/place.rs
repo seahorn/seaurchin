@@ -504,10 +504,10 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                 bug!("using still-pending operand local {:?} as place", place_ref);
             }
         };
-        match addrof_kind {
+        /* match addrof_kind {
             Some(bor) => cg_base.val.llval = bx.ownsem_intrinsic(cg_base.val.llval, bor),
             _ => {}
-        };
+        }; */
         for elem in place_ref.projection[base..].iter() {
             cg_base = match *elem {
                 mir::ProjectionElem::Deref => bx.load_operand(cg_base).deref(bx.cx()),

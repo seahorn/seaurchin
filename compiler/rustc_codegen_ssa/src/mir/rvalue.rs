@@ -1,7 +1,7 @@
 use super::operand::{OperandRef, OperandValue};
 use super::place::PlaceRef;
 use super::{FunctionCx, LocalRef};
-use super::{SeaAliasing, SeaPtrKind};
+use super::SeaPtrKind;
 
 use crate::base;
 use crate::common::IntPredicate;
@@ -126,7 +126,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
             mir::Rvalue::Aggregate(ref kind, ref operands)
                 if !matches!(**kind, mir::AggregateKind::RawPtr(..)) =>
             {
-                let (variant_index, mut variant_dest, active_field_index) = match **kind {
+                let (variant_index, variant_dest, active_field_index) = match **kind {
                     mir::AggregateKind::Adt(_, variant_index, _, _, active_field_index) => {
                         let variant_dest = dest.project_downcast(bx, variant_index);
                         (variant_index, variant_dest, active_field_index)
@@ -141,9 +141,10 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                     let lending_ptr = variant_dest.val.llval;
                     // Do not generate stores and GEPis for zero-sized fields.
                     if !op.layout.is_zst() {
-                        let agg_val = bx.sea_mut_mkbor(lending_ptr);
-                        variant_dest.val.llval =
-                            bx.extract_value(agg_val, SeaAliasing::Alias as u64);
+                        // let agg_val = bx.sea_mut_mkbor(lending_ptr);
+                        let _agg_val = lending_ptr;
+                        /* variant_dest.val.llval =
+                            bx.extract_value(agg_val, SeaAliasing::Alias as u64); */
                         let field_index = active_field_index.unwrap_or(i);
                         let field = if let mir::AggregateKind::Array(_) = **kind {
                             let llindex = bx.cx().const_usize(field_index.as_u32().into());
@@ -153,7 +154,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                         };
                         op.val.store(bx, field);
                         // ownsem: die since field ptr is not used henceforth
-                        bx.sea_die(field.val.llval);
+                        // bx.sea_die(field.val.llval);
                     }
                 }
                 dest.codegen_set_discr(bx, variant_index);
@@ -917,9 +918,9 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                 } else {
                     let llty = bx.cx().backend_type(pointee_layout);
                     // ownsem: ptr.offset is always on a raw ptr
-                    let agg = bx.sea_mut_mkcpy(lhs);
-                    let lhs_new = bx.extract_value(agg, SeaAliasing::Alias as u64);
-                    bx.inbounds_gep(llty, lhs_new, &[rhs])
+                    //let agg = bx.sea_mut_mkcpy(lhs);
+                    //let lhs_new = bx.extract_value(agg, SeaAliasing::Alias as u64);
+                    bx.inbounds_gep(llty, lhs, &[rhs])
                 }
             }
             mir::BinOp::Shl | mir::BinOp::ShlUnchecked => {

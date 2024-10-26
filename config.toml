@@ -66,7 +66,7 @@ download-ci-llvm = false #if rust.channel == "dev" || rust.download-rustc != fal
 #thin-lto = false
 
 # Indicates whether an LLVM Release build should include debug info
-#release-debuginfo = false
+release-debuginfo = false
 
 # Indicates whether the LLVM assertions are enabled or not
 # NOTE: When assertions are disabled, bugs in the integration between rustc and LLVM can lead to
@@ -80,7 +80,7 @@ download-ci-llvm = false #if rust.channel == "dev" || rust.download-rustc != fal
 #tests = false
 
 # Indicates whether the LLVM plugin is enabled or not
-plugins = true
+plugins = false
 
 # Indicates whether ccache is used when building LLVM. Set to `true` to use the first `ccache` in
 # PATH, or set an absolute path to use a specific version.
@@ -101,7 +101,7 @@ ninja = true
 #
 # To add support for new targets, see https://rustc-dev-guide.rust-lang.org/building/new-target.html.
 #targets = "AArch64;ARM;BPF;Hexagon;LoongArch;MSP430;Mips;NVPTX;PowerPC;RISCV;Sparc;SystemZ;WebAssembly;X86"
-#targets = "X86"
+targets = "X86"
 
 # LLVM experimental targets to build support for. These targets are specified in
 # the same format as above, but since these targets are experimental, they are
@@ -121,7 +121,7 @@ ninja = true
 # Under the hood, this passes `--shared` to llvm-config.
 # NOTE: To avoid performing LTO multiple times, we suggest setting this to `true` when `thin-lto` is enabled.
 #link-shared = llvm.thin-lto
-link-shared = true
+link-shared = false
 
 # When building llvm, this configures what is being appended to the version.
 # To use LLVM version as is, provide an empty string.
@@ -471,7 +471,7 @@ link-shared = true
 #       "maximally debuggable" environment (notably libstd) takes
 #       hours to build.
 #
-debug = true
+#debug = true
 
 # Whether to download the stage 1 and 2 compilers from CI.
 # This is mostly useful for tools; if you have changes to `compiler/` or `library/` they will be ignored.
@@ -677,7 +677,7 @@ debug = true
 
 # Indicates whether some LLVM tools, like llvm-objdump, will be made available in the
 # sysroot.
-llvm-tools = true
+#llvm-tools = true
 
 # Indicates whether the `self-contained` llvm-bitcode-linker, will be made available
 # in the sysroot. It is required for running nvptx tests.
@@ -747,7 +747,7 @@ llvm-tools = true
 # question and is used for determining how to compile each target.
 # =============================================================================
 [target.x86_64-unknown-linux-gnu]
-llvm-config = "/usr/bin/llvm-config-18"
+llvm-config = "/home/siddharth/llvm-project/build-rel/bin/llvm-config"
 
 # C compiler to be used to compile C code. Note that the
 # default value is platform specific, and if not specified it may also depend on

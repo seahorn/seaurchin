@@ -11,7 +11,7 @@ use libc::{c_char, c_uint};
 use rustc_codegen_ssa::common::{IntPredicate, RealPredicate, SynchronizationScope, TypeKind};
 use rustc_codegen_ssa::mir::operand::{OperandRef, OperandValue};
 use rustc_codegen_ssa::mir::place::PlaceRef;
-use rustc_codegen_ssa::mir::{SeaAliasing, SeaPtrKind};
+use rustc_codegen_ssa::mir::SeaPtrKind;
 use rustc_codegen_ssa::traits::*;
 use rustc_codegen_ssa::MemFlags;
 use rustc_data_structures::small_c_str::SmallCStr;
@@ -655,15 +655,16 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
         header_bx.cond_br(keep_going, body_bb, next_bb);
 
         let mut body_bx = Self::build(self.cx, body_bb);
-        let mut dest_val = dest.val;
-        let layout = dest.layout;
-        let mutbor = body_bx.sea_mut_mkbor(dest.val.llval);
-        dest_val.llval = body_bx.extract_value(mutbor, SeaAliasing::Alias as u64);
-        let new_dest = PlaceRef { val: dest_val, layout };
-        let dest_elem = new_dest.project_index(&mut body_bx, i);
+        // let dest_val = dest.val;
+        let _layout = dest.layout;
+        // let mutbor = body_bx.sea_mut_mkbor(dest.val.llval);
+        //let mutbor = dest.val.llval;
+        //dest_val.llval = body_bx.extract_value(mutbor, SeaAliasing::Alias as u64);
+        // let new_dest = PlaceRef { val: dest_val, layout };
+        let dest_elem = dest.project_index(&mut body_bx, i);
         cg_elem.val.store(&mut body_bx, dest_elem);
         // ownsem: now the borrow can die
-        body_bx.sea_die(dest_elem.val.llval);
+        //body_bx.sea_die(dest_elem.val.llval);
         let next = body_bx.unchecked_uadd(i, self.const_usize(1));
         body_bx.br(header_bb);
         header_bx.add_incoming_to_phi(i, next, body_bb);
@@ -671,12 +672,13 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
         *self = Self::build(self.cx, next_bb);
     }
 
-    fn ownsem_intrinsic(&mut self, llptr: &'ll Value, ptrkind: SeaPtrKind) -> &'ll Value {
-        match ptrkind {
+    fn ownsem_intrinsic(&mut self, llptr: &'ll Value, _ptrkind: SeaPtrKind) -> &'ll Value {
+        llptr
+        /* match ptrkind {
             SeaPtrKind::MutBor => {
                 let agg = self.sea_mut_mkbor(llptr);
+                let agg = llptr;
                 self.extract_value(agg, SeaAliasing::Alias as u64)
-            }
             SeaPtrKind::RoBor => {
                 let agg = self.sea_ro_mkbor(llptr);
                 self.extract_value(agg, SeaAliasing::Alias as u64)
@@ -685,7 +687,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
                 let agg = self.sea_mut_mkcpy(llptr);
                 self.extract_value(agg, SeaAliasing::Alias as u64)
             }
-        }
+        } */
     }
 
     fn range_metadata(&mut self, load: &'ll Value, range: WrappingRange) {
