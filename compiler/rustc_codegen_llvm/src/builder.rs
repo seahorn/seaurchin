@@ -32,6 +32,7 @@ use std::iter;
 use std::ops::Deref;
 use std::ptr;
 use tracing::{debug, instrument};
+use std::ffi::CString;
 
 // All Builders must have an llfn associated with them
 #[must_use]
@@ -661,7 +662,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
         //let mutbor = dest.val.llval;
         //dest_val.llval = body_bx.extract_value(mutbor, SeaAliasing::Alias as u64);
         // let new_dest = PlaceRef { val: dest_val, layout };
-        let dest_elem = dest.project_index(&mut body_bx, i);
+        let dest_elem = dest.sea_project_index(&mut body_bx, i, &Some(SeaPtrKind::MutBor));
         cg_elem.val.store(&mut body_bx, dest_elem);
         // ownsem: now the borrow can die
         //body_bx.sea_die(dest_elem.val.llval);
@@ -725,6 +726,50 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
                 load,
                 llvm::MD_nonnull as c_uint,
                 llvm::LLVMMDNodeInContext(self.cx.llcx, ptr::null(), 0),
+            );
+        }
+    }
+
+    fn mutbor_metadata(&mut self, load: &'ll Value) {
+        // Create a metadata string with the content "mutbor"
+        let meta_content = CString::new("mutbor").unwrap();
+        let metadata_value = unsafe { llvm::LLVMMDStringInContext(self.cx.llcx, meta_content.as_ptr(), meta_content.as_bytes().len() as u32) };
+
+        // Create a metadata node containing our metadata value
+        let meta_elements = &[metadata_value];
+        let metadata_node = unsafe { llvm::LLVMMDNodeInContext(self.cx.llcx, meta_elements.as_ptr(), meta_elements.len() as u32) };
+
+        // Set metadata on the value with a custom metadata kind ID "ownsem"
+        let ownsem_str = CString::new("ownsem").unwrap();
+        let ownsem_metadata_kind_id = unsafe { llvm::LLVMGetMDKindIDInContext(self.cx.llcx, ownsem_str.as_ptr(), 6) }; // 6 is the length of "custom"
+
+        unsafe {
+            llvm::LLVMSetMetadata(
+                load,
+                ownsem_metadata_kind_id as c_uint,
+                metadata_node,
+            );
+        }
+    }
+    
+    fn robor_metadata(&mut self, load: &'ll Value) {
+        // Create a metadata string with the content "robor"
+        let meta_content = CString::new("robor").unwrap();
+        let metadata_value = unsafe { llvm::LLVMMDStringInContext(self.cx.llcx, meta_content.as_ptr(), meta_content.as_bytes().len() as u32) };
+
+        // Create a metadata node containing our metadata value
+        let meta_elements = &[metadata_value];
+        let metadata_node = unsafe { llvm::LLVMMDNodeInContext(self.cx.llcx, meta_elements.as_ptr(), meta_elements.len() as u32) };
+
+        // Set metadata on the value with a custom metadata kind ID "ownsem"
+        let ownsem_str = CString::new("ownsem").unwrap();
+        let ownsem_metadata_kind_id = unsafe { llvm::LLVMGetMDKindIDInContext(self.cx.llcx, ownsem_str.as_ptr(), 6) }; // 6 is the length of "custom"
+
+        unsafe {
+            llvm::LLVMSetMetadata(
+                load,
+                ownsem_metadata_kind_id as c_uint,
+                metadata_node,
             );
         }
     }

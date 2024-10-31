@@ -156,14 +156,14 @@ impl<'a, 'tcx, V: CodegenObject> PlaceRef<'tcx, V> {
         bx: &mut Bx,
         ix: usize,
     ) -> Self {
-        self.sea_project_field(bx, ix, None)
+        self.sea_project_field(bx, ix, &Some(SeaPtrKind::MutCpy))
     }
     /// Access a field, at a point when the value's case is known.
     pub fn sea_project_field<Bx: BuilderMethods<'a, 'tcx, Value = V>>(
         self,
         bx: &mut Bx,
         ix: usize,
-        _offset_kind: Option<SeaPtrKind>,
+        offset_kind: &Option<SeaPtrKind>,
     ) -> Self {
         let field = self.layout.field(bx.cx(), ix);
         let offset = self.layout.fields.offset(ix);
@@ -176,6 +176,11 @@ impl<'a, 'tcx, V: CodegenObject> PlaceRef<'tcx, V> {
                 self.val.llval
             } else {
                 bx.inbounds_ptradd(self.val.llval, bx.const_usize(offset.bytes()))
+            };
+            match offset_kind {
+                Some(SeaPtrKind::MutBor) => bx.mutbor_metadata(llval),
+                Some(SeaPtrKind::RoBor) => bx.robor_metadata(llval),
+                _ => {},
             };
             let val = PlaceValue {
                 llval,
@@ -235,6 +240,11 @@ impl<'a, 'tcx, V: CodegenObject> PlaceRef<'tcx, V> {
 
         // Adjust pointer.
         let ptr = bx.inbounds_ptradd(self.val.llval, offset);
+        match offset_kind {
+            Some(SeaPtrKind::MutBor) => bx.mutbor_metadata(ptr),
+            Some(SeaPtrKind::RoBor) => bx.robor_metadata(ptr),
+            _ => {},
+        };
         let val =
             PlaceValue { llval: ptr, llextra: self.val.llextra, align: effective_field_align };
         val.with_type(field)
@@ -417,6 +427,15 @@ impl<'a, 'tcx, V: CodegenObject> PlaceRef<'tcx, V> {
         bx: &mut Bx,
         llindex: V,
     ) -> Self {
+        self.sea_project_index(bx, llindex, &None)
+    }
+
+    pub fn sea_project_index<Bx: BuilderMethods<'a, 'tcx, Value = V>>(
+        &self,
+        bx: &mut Bx,
+        llindex: V,
+        borkind: &Option<SeaPtrKind>,
+    ) -> Self {
         // Statically compute the offset if we can, otherwise just use the element size,
         // as this will yield the lowest alignment.
         let layout = self.layout.field(bx, 0);
@@ -431,9 +450,15 @@ impl<'a, 'tcx, V: CodegenObject> PlaceRef<'tcx, V> {
             self.val.llval,
             &[bx.cx().const_usize(0), llindex],
         );
+        match borkind {
+            Some(SeaPtrKind::MutBor) => bx.mutbor_metadata(llval),
+            Some(SeaPtrKind::RoBor) => bx.robor_metadata(llval),
+            _ => {},
+        };
         let align = self.val.align.restrict_for_offset(offset);
         PlaceValue::new_sized(llval, align).with_type(layout)
     }
+    
 
     pub fn project_downcast<Bx: BuilderMethods<'a, 'tcx, Value = V>>(
         &self,
@@ -517,7 +542,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                         "Bad PlaceRef: destructing pointers should use cast/PtrMetadata, \
                          but tried to access field {field:?} of pointer {cg_base:?}",
                     );
-                    cg_base.project_field(bx, field.index())
+                    cg_base.sea_project_field(bx, field.index(), &addrof_kind)
                 }
                 mir::ProjectionElem::OpaqueCast(ty) => {
                     bug!("encountered OpaqueCast({ty}) in codegen")
@@ -527,20 +552,20 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                     let index = &mir::Operand::Copy(mir::Place::from(index));
                     let index = self.codegen_operand(bx, index);
                     let llindex = index.immediate();
-                    cg_base.project_index(bx, llindex)
+                    cg_base.sea_project_index(bx, llindex, &addrof_kind)
                 }
                 mir::ProjectionElem::ConstantIndex { offset, from_end: false, min_length: _ } => {
                     let lloffset = bx.cx().const_usize(offset);
-                    cg_base.project_index(bx, lloffset)
+                    cg_base.sea_project_index(bx, lloffset, &addrof_kind)
                 }
                 mir::ProjectionElem::ConstantIndex { offset, from_end: true, min_length: _ } => {
                     let lloffset = bx.cx().const_usize(offset);
                     let lllen = cg_base.len(bx.cx());
                     let llindex = bx.sub(lllen, lloffset);
-                    cg_base.project_index(bx, llindex)
+                    cg_base.sea_project_index(bx, llindex, &addrof_kind)
                 }
                 mir::ProjectionElem::Subslice { from, to, from_end } => {
-                    let mut subslice = cg_base.project_index(bx, bx.cx().const_usize(from));
+                    let mut subslice = cg_base.sea_project_index(bx, bx.cx().const_usize(from), &addrof_kind);
                     let projected_ty =
                         PlaceTy::from_ty(cg_base.layout.ty).projection_ty(tcx, *elem).ty;
                     subslice.layout = bx.cx().layout_of(self.monomorphize(projected_ty));

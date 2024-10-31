@@ -148,9 +148,9 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                         let field_index = active_field_index.unwrap_or(i);
                         let field = if let mir::AggregateKind::Array(_) = **kind {
                             let llindex = bx.cx().const_usize(field_index.as_u32().into());
-                            variant_dest.project_index(bx, llindex)
+                            variant_dest.sea_project_index(bx, llindex, &Some(SeaPtrKind::MutBor))
                         } else {
-                            variant_dest.project_field(bx, field_index.as_usize())
+                            variant_dest.sea_project_field(bx, field_index.as_usize(), &Some(SeaPtrKind::MutBor))
                         };
                         op.val.store(bx, field);
                         // ownsem: die since field ptr is not used henceforth
