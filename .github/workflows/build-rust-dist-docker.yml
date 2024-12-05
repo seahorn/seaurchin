@@ -32,9 +32,9 @@ jobs:
         with: 
           #name: seaurchin-llvm-build
           repo: seahorn/seaurchin-llvm
-          workflow-name: build-seaurchin-llvm-assert-bin.yml
+          workflow: build-seaurchin-llvm-assert-bin.yml
           branch: dev-18
-          github-token: ${{ secrets.seaurchin-llvm-read }}
+          github_token: ${{ secrets.seaurchin-llvm-read }}
       
       - name: Checkout seaurchin
         uses: actions/checkout@v4
