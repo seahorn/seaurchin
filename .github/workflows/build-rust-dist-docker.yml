@@ -1,0 +1,41 @@
+
+name: Build builddeps Container
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    branches:
+      - dev-18
+    paths:
+      - .github/workflows/build-ci-container.yml
+      - 'docker/**'
+
+jobs:
+  build-ci-container:
+    if: github.repository_owner == 'seahorn'
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Write Variables
+        id: vars
+        run: |
+          tag=`date +%s`
+          container_name="ghcr.io/$GITHUB_REPOSITORY_OWNER/seaurchin-llvm/buildpack-deps-seaurchin"
+          echo "container-name=buildpack-deps-seaurchin" >> $GITHUB_OUTPUT
+          echo "container-name-tag=$container_name:latest" >> $GITHUB_OUTPUT
+      
+      - name: Download seaurchin-llvm
+        uses: actions/download-artifact@v4
+        with: 
+          name: seaurchin-llvm-assert-build
+          repository: seahorn/seaurchin-llvm
+          github-token: ${{ secrets.seaurchin-llvm-read }}
+      
+      - name: Checkout seaurchin
+        uses: actions/checkout@v4
+  
+      - name: Display structure of downloaded seaurchin-llvm artefact
+          run: ls -R seaurchin-llvm-assert-build*
