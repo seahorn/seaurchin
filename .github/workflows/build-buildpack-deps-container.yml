@@ -27,7 +27,7 @@ jobs:
           echo "container-name=buildpack-deps-seaurchin" >> $GITHUB_OUTPUT
           echo "container-name-tag=$container_name:latest" >> $GITHUB_OUTPUT
 
-      - name: Checkout LLVM
+      - name: Checkout buildpack-deps docker
         uses: actions/checkout@v4
         with:
           sparse-checkout: docker/

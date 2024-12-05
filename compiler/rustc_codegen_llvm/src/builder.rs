@@ -761,7 +761,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
             )
         };
         unsafe {
-            // TODO(ownsem): remove hack, this should only be called for instructions
+            // FIXME (ownsem): remove hack, this should only be called for instructions
             if llvm::LLVMGetValueKind(load) == llvm::LLVMValueKind::LLVMInstructionValueKind {
                 llvm::LLVMSetMetadata(load, ownsem_metadata_kind_id as c_uint, metadata_node);
             }
@@ -799,7 +799,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
             )
         };
         unsafe {
-            // TODO(ownsem): remove hack, this should only be called for instructions
+            // FIXME (ownsem): remove hack, this should only be called for instructions
             if llvm::LLVMGetValueKind(load) == llvm::LLVMValueKind::LLVMInstructionValueKind {
                 llvm::LLVMSetMetadata(load, ownsem_metadata_kind_id as c_uint, metadata_node);
             }
@@ -837,7 +837,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
             )
         };
         unsafe {
-            // TODO(ownsem): remove hack, this should only be called for instructions
+            // FIXME (ownsem): remove hack, this should only be called for instructions
             if llvm::LLVMGetValueKind(load) == llvm::LLVMValueKind::LLVMInstructionValueKind {
                 llvm::LLVMSetMetadata(load, ownsem_metadata_kind_id as c_uint, metadata_node);
             }
