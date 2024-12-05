@@ -28,11 +28,11 @@ use rustc_target::abi::{self, call::FnAbi, Align, Size, WrappingRange};
 use rustc_target::spec::{HasTargetSpec, SanitizerSet, Target};
 use smallvec::SmallVec;
 use std::borrow::Cow;
+use std::ffi::CString;
 use std::iter;
 use std::ops::Deref;
 use std::ptr;
 use tracing::{debug, instrument};
-use std::ffi::CString;
 
 // All Builders must have an llfn associated with them
 #[must_use]
@@ -733,44 +733,114 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
     fn mutbor_metadata(&mut self, load: &'ll Value) {
         // Create a metadata string with the content "mutbor"
         let meta_content = CString::new("mutbor").unwrap();
-        let metadata_value = unsafe { llvm::LLVMMDStringInContext(self.cx.llcx, meta_content.as_ptr(), meta_content.as_bytes().len() as u32) };
+        let metadata_value = unsafe {
+            llvm::LLVMMDStringInContext(
+                self.cx.llcx,
+                meta_content.as_ptr(),
+                meta_content.as_bytes().len() as u32,
+            )
+        };
 
         // Create a metadata node containing our metadata value
         let meta_elements = &[metadata_value];
-        let metadata_node = unsafe { llvm::LLVMMDNodeInContext(self.cx.llcx, meta_elements.as_ptr(), meta_elements.len() as u32) };
+        let metadata_node = unsafe {
+            llvm::LLVMMDNodeInContext(
+                self.cx.llcx,
+                meta_elements.as_ptr(),
+                meta_elements.len() as u32,
+            )
+        };
 
-        // Set metadata on the value with a custom metadata kind ID "ownsem"
-        let ownsem_str = CString::new("ownsem").unwrap();
-        let ownsem_metadata_kind_id = unsafe { llvm::LLVMGetMDKindIDInContext(self.cx.llcx, ownsem_str.as_ptr(), 6) }; // 6 is the length of "custom"
-
+        // Set metadata on the value with a custom metadata kind ID "mutbor"
+        let mutbor_str = CString::new("ownsem").unwrap();
+        let ownsem_metadata_kind_id = unsafe {
+            llvm::LLVMGetMDKindIDInContext(
+                self.cx.llcx,
+                mutbor_str.as_ptr(),
+                mutbor_str.as_bytes().len() as u32,
+            )
+        };
         unsafe {
-            llvm::LLVMSetMetadata(
-                load,
-                ownsem_metadata_kind_id as c_uint,
-                metadata_node,
-            );
+            // TODO(ownsem): remove hack, this should only be called for instructions
+            if llvm::LLVMGetValueKind(load) == llvm::LLVMValueKind::LLVMInstructionValueKind {
+                llvm::LLVMSetMetadata(load, ownsem_metadata_kind_id as c_uint, metadata_node);
+            }
         }
     }
-    
+
+    fn rawptr_metadata(&mut self, load: &'ll Value) {
+        // Create a metadata string with the content "rawptr"
+        let meta_content = CString::new("rawptr").unwrap();
+        let metadata_value = unsafe {
+            llvm::LLVMMDStringInContext(
+                self.cx.llcx,
+                meta_content.as_ptr(),
+                meta_content.as_bytes().len() as u32,
+            )
+        };
+
+        // Create a metadata node containing our metadata value
+        let meta_elements = &[metadata_value];
+        let metadata_node = unsafe {
+            llvm::LLVMMDNodeInContext(
+                self.cx.llcx,
+                meta_elements.as_ptr(),
+                meta_elements.len() as u32,
+            )
+        };
+
+        // Set metadata on the value with a custom metadata kind ID "rawptr"
+        let rawptr_str = CString::new("ownsem").unwrap();
+        let ownsem_metadata_kind_id = unsafe {
+            llvm::LLVMGetMDKindIDInContext(
+                self.cx.llcx,
+                rawptr_str.as_ptr(),
+                rawptr_str.as_bytes().len() as u32,
+            )
+        };
+        unsafe {
+            // TODO(ownsem): remove hack, this should only be called for instructions
+            if llvm::LLVMGetValueKind(load) == llvm::LLVMValueKind::LLVMInstructionValueKind {
+                llvm::LLVMSetMetadata(load, ownsem_metadata_kind_id as c_uint, metadata_node);
+            }
+        }
+    }
+
     fn robor_metadata(&mut self, load: &'ll Value) {
         // Create a metadata string with the content "robor"
         let meta_content = CString::new("robor").unwrap();
-        let metadata_value = unsafe { llvm::LLVMMDStringInContext(self.cx.llcx, meta_content.as_ptr(), meta_content.as_bytes().len() as u32) };
+        let metadata_value = unsafe {
+            llvm::LLVMMDStringInContext(
+                self.cx.llcx,
+                meta_content.as_ptr(),
+                meta_content.as_bytes().len() as u32,
+            )
+        };
 
         // Create a metadata node containing our metadata value
         let meta_elements = &[metadata_value];
-        let metadata_node = unsafe { llvm::LLVMMDNodeInContext(self.cx.llcx, meta_elements.as_ptr(), meta_elements.len() as u32) };
+        let metadata_node = unsafe {
+            llvm::LLVMMDNodeInContext(
+                self.cx.llcx,
+                meta_elements.as_ptr(),
+                meta_elements.len() as u32,
+            )
+        };
 
-        // Set metadata on the value with a custom metadata kind ID "ownsem"
-        let ownsem_str = CString::new("ownsem").unwrap();
-        let ownsem_metadata_kind_id = unsafe { llvm::LLVMGetMDKindIDInContext(self.cx.llcx, ownsem_str.as_ptr(), 6) }; // 6 is the length of "custom"
-
+        // Set metadata on the value with a custom metadata kind ID "robor"
+        let robor_str = CString::new("ownsem").unwrap();
+        let ownsem_metadata_kind_id = unsafe {
+            llvm::LLVMGetMDKindIDInContext(
+                self.cx.llcx,
+                robor_str.as_ptr(),
+                robor_str.as_bytes().len() as u32,
+            )
+        };
         unsafe {
-            llvm::LLVMSetMetadata(
-                load,
-                ownsem_metadata_kind_id as c_uint,
-                metadata_node,
-            );
+            // TODO(ownsem): remove hack, this should only be called for instructions
+            if llvm::LLVMGetValueKind(load) == llvm::LLVMValueKind::LLVMInstructionValueKind {
+                llvm::LLVMSetMetadata(load, ownsem_metadata_kind_id as c_uint, metadata_node);
+            }
         }
     }
 

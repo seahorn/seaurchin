@@ -183,6 +183,7 @@ pub trait BuilderMethods<'a, 'tcx>:
     fn range_metadata(&mut self, load: Self::Value, range: WrappingRange);
     fn nonnull_metadata(&mut self, load: Self::Value);
     fn mutbor_metadata(&mut self, load: Self::Value);
+    fn rawptr_metadata(&mut self, load: Self::Value);
     fn robor_metadata(&mut self, load: Self::Value);
 
     fn store(&mut self, val: Self::Value, ptr: Self::Value, align: Align) -> Self::Value;

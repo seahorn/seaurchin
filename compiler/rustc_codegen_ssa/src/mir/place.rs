@@ -6,6 +6,7 @@ use crate::common::IntPredicate;
 use crate::size_of_val;
 use crate::traits::*;
 
+use rustc_hir::Mutability;
 use rustc_middle::bug;
 use rustc_middle::mir;
 use rustc_middle::mir::tcx::PlaceTy;
@@ -15,6 +16,7 @@ use rustc_target::abi::{Align, FieldsShape, Int, Pointer, Size, TagEncoding};
 use rustc_target::abi::{VariantIdx, Variants};
 use tracing::{debug, instrument};
 
+//use rustc_hir::Safety;
 /// The location and extra runtime properties of the place.
 ///
 /// Typically found in a [`PlaceRef`] or an [`OperandValue::Ref`].
@@ -180,7 +182,7 @@ impl<'a, 'tcx, V: CodegenObject> PlaceRef<'tcx, V> {
             match offset_kind {
                 Some(SeaPtrKind::MutBor) => bx.mutbor_metadata(llval),
                 Some(SeaPtrKind::RoBor) => bx.robor_metadata(llval),
-                _ => {},
+                _ => {}
             };
             let val = PlaceValue {
                 llval,
@@ -243,7 +245,7 @@ impl<'a, 'tcx, V: CodegenObject> PlaceRef<'tcx, V> {
         match offset_kind {
             Some(SeaPtrKind::MutBor) => bx.mutbor_metadata(ptr),
             Some(SeaPtrKind::RoBor) => bx.robor_metadata(ptr),
-            _ => {},
+            _ => {}
         };
         let val =
             PlaceValue { llval: ptr, llextra: self.val.llextra, align: effective_field_align };
@@ -453,12 +455,11 @@ impl<'a, 'tcx, V: CodegenObject> PlaceRef<'tcx, V> {
         match borkind {
             Some(SeaPtrKind::MutBor) => bx.mutbor_metadata(llval),
             Some(SeaPtrKind::RoBor) => bx.robor_metadata(llval),
-            _ => {},
+            _ => {}
         };
         let align = self.val.align.restrict_for_offset(offset);
         PlaceValue::new_sized(llval, align).with_type(layout)
     }
-    
 
     pub fn project_downcast<Bx: BuilderMethods<'a, 'tcx, Value = V>>(
         &self,
@@ -508,27 +509,36 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
     ) -> PlaceRef<'tcx, Bx::Value> {
         let cx = self.cx;
         let tcx = self.cx.tcx();
-
         let mut base = 0;
-        let mut cg_base = match self.locals[place_ref.local] {
-            LocalRef::Place(place) => place,
-            LocalRef::UnsizedPlace(place) => bx.load_operand(place).deref(cx),
-            LocalRef::Operand(..) => {
-                if place_ref.is_indirect_first_projection() {
-                    base = 1;
-                    let cg_base = self.codegen_consume(
-                        bx,
-                        mir::PlaceRef { projection: &place_ref.projection[..0], ..place_ref },
-                    );
-                    cg_base.deref(bx.cx())
-                } else {
-                    bug!("using operand local {:?} as place", place_ref);
+        let place_ty = self.monomorphized_place_ty(place_ref);
+        debug!("sea_codegen_place(place_ref_ty={:?})", place_ty);
+        let mut ownsem_kind: Option<SeaPtrKind> = None;
+        let mut cg_base: PlaceRef<'tcx, <Bx as BackendTypes>::Value> =
+            match self.locals[place_ref.local] {
+                LocalRef::Place(place) => place,
+                LocalRef::UnsizedPlace(place) => bx.load_operand(place).deref(cx),
+                LocalRef::Operand(..) => {
+                    if place_ref.is_indirect_first_projection() {
+                        base = 1;
+                        let deref_place =
+                            mir::PlaceRef { projection: &place_ref.projection[..0], ..place_ref };
+                        let ty = self.monomorphized_place_ty(deref_place);
+                        ownsem_kind = match ty.ref_mutability() {
+                            Some(Mutability::Mut) => Some(SeaPtrKind::MutBor),
+                            Some(Mutability::Not) => Some(SeaPtrKind::RoBor),
+                            _ => None,
+                        };
+                        let cg_base = self.codegen_consume(bx, deref_place);
+                        cg_base.deref(bx.cx())
+                    } else {
+                        bug!("using operand local {:?} as place", place_ref);
+                    }
                 }
-            }
-            LocalRef::PendingOperand => {
-                bug!("using still-pending operand local {:?} as place", place_ref);
-            }
-        };
+                LocalRef::PendingOperand => {
+                    bug!("using still-pending operand local {:?} as place", place_ref);
+                }
+            };
+        debug!("sea_codegen_place(cg_base_ty={:?})", cg_base.layout.ty);
         /* match addrof_kind {
             Some(bor) => cg_base.val.llval = bx.ownsem_intrinsic(cg_base.val.llval, bor),
             _ => {}
@@ -542,7 +552,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                         "Bad PlaceRef: destructing pointers should use cast/PtrMetadata, \
                          but tried to access field {field:?} of pointer {cg_base:?}",
                     );
-                    cg_base.sea_project_field(bx, field.index(), &addrof_kind)
+                    cg_base.sea_project_field(bx, field.index(), &ownsem_kind)
                 }
                 mir::ProjectionElem::OpaqueCast(ty) => {
                     bug!("encountered OpaqueCast({ty}) in codegen")
@@ -552,20 +562,21 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                     let index = &mir::Operand::Copy(mir::Place::from(index));
                     let index = self.codegen_operand(bx, index);
                     let llindex = index.immediate();
-                    cg_base.sea_project_index(bx, llindex, &addrof_kind)
+                    cg_base.sea_project_index(bx, llindex, &ownsem_kind)
                 }
                 mir::ProjectionElem::ConstantIndex { offset, from_end: false, min_length: _ } => {
                     let lloffset = bx.cx().const_usize(offset);
-                    cg_base.sea_project_index(bx, lloffset, &addrof_kind)
+                    cg_base.sea_project_index(bx, lloffset, &ownsem_kind)
                 }
                 mir::ProjectionElem::ConstantIndex { offset, from_end: true, min_length: _ } => {
                     let lloffset = bx.cx().const_usize(offset);
                     let lllen = cg_base.len(bx.cx());
                     let llindex = bx.sub(lllen, lloffset);
-                    cg_base.sea_project_index(bx, llindex, &addrof_kind)
+                    cg_base.sea_project_index(bx, llindex, &ownsem_kind)
                 }
                 mir::ProjectionElem::Subslice { from, to, from_end } => {
-                    let mut subslice = cg_base.sea_project_index(bx, bx.cx().const_usize(from), &addrof_kind);
+                    let mut subslice =
+                        cg_base.sea_project_index(bx, bx.cx().const_usize(from), &ownsem_kind);
                     let projected_ty =
                         PlaceTy::from_ty(cg_base.layout.ty).projection_ty(tcx, *elem).ty;
                     subslice.layout = bx.cx().layout_of(self.monomorphize(projected_ty));
@@ -591,6 +602,41 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
         let place_ty = place_ref.ty(self.mir, tcx);
         self.monomorphize(place_ty.ty)
     }
+    // #[instrument(level = "trace", skip(self, bx))]
+    // pub fn _cg_ownsem_metadata(&self,
+    //                         parent_place_ref: mir::PlaceRef<'tcx>,
+    //                         cg_base_new: PlaceRef<'tcx, <Bx as BackendTypes>::Value>,
+    //                         bx: &mut Bx) {
+    //         let parent_ty = self.monomorphized_place_ty(parent_place_ref);
+    //         debug!("cg_ownsem_metadata(place_ref_ty={:?})", parent_ty);
+    //         // if the projected place is a ptr, then add ownsem type metadata
+    //         if cg_base_new.layout.ty.is_any_ptr() {
+    //           if cg_base_new.layout.ty.is_unsafe_ptr() {
+    //             debug!("cg_ownsem_metadata(result_is_unsafe_ptr={:?})", true);
+    //             // do nothing
+    //             // bx.rawptr_metadata(cg_base.val.llval);
+    //         } else {
+    //             match cg_base_new.layout.ty.ref_mutability() {
+    //                 Some(Mutability::Mut) => {
+    //                     debug!("cg_ownsem_metadata(result_is_mutbor={:?})", true);
+    //                     bx.mutbor_metadata(cg_base_new.val.llval);},
+    //                 Some(Mutability::Not) => {
+    //                     debug!("cg_ownsem_metadata(result_is_robor={:?})", true);
+    //                     bx.robor_metadata(cg_base_new.val.llval);},
+    //                 None => {
+    //                     //logic for gepping from base
+    //                     match parent_ty.ref_mutability() {
+    //                         Some(Mutability::Mut) => {bx.mutbor_metadata(cg_base_new.val.llval);},
+    //                         Some(Mutability::Not) => {bx.robor_metadata(cg_base_new.val.llval);},
+    //                         None => {
+    //                             debug!("cg_ownsem_metadata(source_is_unknown={:?})", true);
+
+    //                         }
+    //                     };
+    //                 }
+    //             }
+    //         }
+    //     }
 }
 
 fn round_up_const_value_to_alignment<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(

@@ -1,7 +1,7 @@
 use super::operand::{OperandRef, OperandValue};
 use super::place::PlaceRef;
-use super::{FunctionCx, LocalRef};
 use super::SeaPtrKind;
+use super::{FunctionCx, LocalRef};
 
 use crate::base;
 use crate::common::IntPredicate;
@@ -144,13 +144,17 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                         // let agg_val = bx.sea_mut_mkbor(lending_ptr);
                         let _agg_val = lending_ptr;
                         /* variant_dest.val.llval =
-                            bx.extract_value(agg_val, SeaAliasing::Alias as u64); */
+                        bx.extract_value(agg_val, SeaAliasing::Alias as u64); */
                         let field_index = active_field_index.unwrap_or(i);
                         let field = if let mir::AggregateKind::Array(_) = **kind {
                             let llindex = bx.cx().const_usize(field_index.as_u32().into());
                             variant_dest.sea_project_index(bx, llindex, &Some(SeaPtrKind::MutBor))
                         } else {
-                            variant_dest.sea_project_field(bx, field_index.as_usize(), &Some(SeaPtrKind::MutBor))
+                            variant_dest.sea_project_field(
+                                bx,
+                                field_index.as_usize(),
+                                &Some(SeaPtrKind::MutBor),
+                            )
                         };
                         op.val.store(bx, field);
                         // ownsem: die since field ptr is not used henceforth

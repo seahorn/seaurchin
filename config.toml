@@ -408,11 +408,11 @@ link-shared = false
 [install]
 
 # Where to install the generated toolchain. Must be an absolute path.
-#prefix = "/usr/local"
+prefix = "/home/siddharth/rust/install/usr/local"
 
 # Where to install system configuration files.
 # If this is a relative path, it will get installed in `prefix` above
-#sysconfdir = "/etc"
+sysconfdir = "etc"
 
 # Where to install documentation in `prefix` above
 #docdir = "share/doc/rust"
@@ -471,7 +471,7 @@ link-shared = false
 #       "maximally debuggable" environment (notably libstd) takes
 #       hours to build.
 #
-#debug = true
+debug = false
 
 # Whether to download the stage 1 and 2 compilers from CI.
 # This is mostly useful for tools; if you have changes to `compiler/` or `library/` they will be ignored.
@@ -510,7 +510,7 @@ link-shared = false
 #
 # If you see a message from `tracing` saying "some trace filter directives would enable traces that
 # are disabled statically" because `max_level_info` is enabled, set this value to `true`.
-#debug-logging = rust.debug-assertions (boolean)
+debug-logging = true
 
 # Whether or not overflow checks are enabled for the compiler and standard
 # library.
