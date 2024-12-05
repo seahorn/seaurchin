@@ -52,14 +52,14 @@ jobs:
     - name: Build/test rust
       run: |
         sudo chown $USER:$USER /mnt/
-        RUSTFLAGS_NOT_BOOTSTRAP="-Cllvm-args=-debug-only=licm  -Cllvm-args=-licm-uses-ownsem" /mnt/x.py  --config=config.ci.toml install 
+        RUSTFLAGS_NOT_BOOTSTRAP="-Cllvm-args=-debug-only=licm  -Cllvm-args=-licm-uses-ownsem" x.py  --config=config.ci.toml install 
  
     # We need to create an archive of the build directory, because it has too
     # many files to upload.
     - name: Package Build and Source Directories
       run: |
-        tar -c . | zstd -T0 -c > seaurchin-project.tar.zst
-        tar -C /mnt/ -c install/ | zstd -T0 -c > seaurchin-dist.tar.zst
+        #tar -c . | zstd -T0 -c > seaurchin-project.tar.zst
+        tar -c install/ | zstd -T0 -c > seaurchin-dist.tar.zst
 
     - name: Upload seaurchin Source
       uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 #v4.3.0
