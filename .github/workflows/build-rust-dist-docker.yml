@@ -1,5 +1,5 @@
 
-name: Build builddeps Container
+name: Build Rust Dist Container
 
 permissions:
   contents: read
@@ -12,7 +12,7 @@ on:
       - .github/workflows/build-rust-dist-docker.yml
 
 jobs:
-  build-ci-container:
+  build-rust-dist-container:
     if: github.repository_owner == 'seahorn'
     runs-on: ubuntu-latest
     permissions:
