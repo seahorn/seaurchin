@@ -34,7 +34,7 @@ jobs:
           repo: seahorn/seaurchin-llvm
           workflow: build-seaurchin-llvm-assert-bin.yml
           branch: dev-18
-          github_token: ${{ secrets.seaurchin-llvm-read }}
+          github_token: ${{secrets.GITHUB_TOKEN}}
       
       - name: Checkout seaurchin
         uses: actions/checkout@v4
