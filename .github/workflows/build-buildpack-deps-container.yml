@@ -1,0 +1,51 @@
+
+name: Build builddeps Container
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    branches:
+      - dev-18
+    paths:
+      - .github/workflows/build-ci-container.yml
+      - 'docker/**'
+
+jobs:
+  build-ci-container:
+    if: github.repository_owner == 'seahorn'
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Write Variables
+        id: vars
+        run: |
+          tag=`date +%s`
+          container_name="ghcr.io/$GITHUB_REPOSITORY_OWNER/seaurchin-llvm/buildpack-deps-seaurchin"
+          echo "container-name=buildpack-deps-seaurchin" >> $GITHUB_OUTPUT
+          echo "container-name-tag=$container_name:latest" >> $GITHUB_OUTPUT
+
+      - name: Checkout LLVM
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: docker/
+
+      - name: Build buildpack-deps-seaurchin Container
+        run: |
+          docker build -f docker/buildpack-deps-seaurchin.dockerfile -t ${{ steps.vars.outputs.container-name-tag }} .
+          docker tag ${{ steps.vars.outputs.container-name-tag }} ${{ steps.vars.outputs.container-name }}:latest
+
+      - name: Test buildpack-deps-seaurchin Container
+        run: |
+          for image in ${{ steps.vars.outputs.container-name-tag }} ${{  steps.vars.outputs.container-name }}; do
+            docker run --rm -t $image /usr/bin/bash -x -c 'printf '\''#include <iostream>\nint main(int argc, char **argv) { std::cout << "Hello\\n"; }'\'' | clang++-18 -x c++ - && ./a.out | grep Hello'
+          done
+
+      - name: Push buildpack-deps-seaurchin Container
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker login -u ${{ github.actor }} -p $GITHUB_TOKEN ghcr.io
+          docker push ${{ steps.vars.outputs.container-name-tag }}
