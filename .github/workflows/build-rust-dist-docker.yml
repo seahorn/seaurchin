@@ -37,4 +37,4 @@ jobs:
         uses: actions/checkout@v4
   
       - name: Display structure of downloaded seaurchin-llvm artefact
-          run: ls -laH
+        run: ls -laH
