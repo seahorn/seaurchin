@@ -44,10 +44,10 @@ jobs:
       
   build-rust-dist-container:
     needs: prepare-rust-dist
-    if: github.repository_owner == 'seahorn'
       runs-on: ubuntu-22.04
       permissions:
       packages: write
+    if: github.repository_owner == 'seahorn'
     steps:
     - name: Build/test rust
       run: |
