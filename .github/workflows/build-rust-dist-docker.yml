@@ -33,11 +33,11 @@ jobs:
       - name: Download seaurchin-llvm
         uses: dawidd6/action-download-artifact@v7
         with: 
-          #name: seaurchin-llvm-build
           repo: seahorn/seaurchin-llvm
           workflow: build-seaurchin-llvm-assert-bin.yml
           branch: dev-18
           github_token: ${{secrets.GITHUB_TOKEN}}
+          path: seaurchin-llvm
 
       - name: Display structure of downloaded seaurchin-llvm artefact
         run: ls -laH
