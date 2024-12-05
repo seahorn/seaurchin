@@ -9,8 +9,7 @@ on:
     branches:
       - dev-18
     paths:
-      - .github/workflows/build-ci-container.yml
-      - 'docker/**'
+      - .github/workflows/build-rust-dist-docker.yml
 
 jobs:
   build-ci-container:
