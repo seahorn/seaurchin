@@ -26,7 +26,10 @@ jobs:
           container_name="ghcr.io/$GITHUB_REPOSITORY_OWNER/seaurchin-llvm/buildpack-deps-seaurchin"
           echo "container-name=buildpack-deps-seaurchin" >> $GITHUB_OUTPUT
           echo "container-name-tag=$container_name:latest" >> $GITHUB_OUTPUT
-      
+    
+      - name: Checkout seaurchin
+        uses: actions/checkout@v4
+
       - name: Download seaurchin-llvm
         uses: dawidd6/action-download-artifact@v7
         with: 
@@ -35,9 +38,6 @@ jobs:
           workflow: build-seaurchin-llvm-assert-bin.yml
           branch: dev-18
           github_token: ${{secrets.GITHUB_TOKEN}}
-      
-      - name: Checkout seaurchin
-        uses: actions/checkout@v4
-  
+
       - name: Display structure of downloaded seaurchin-llvm artefact
         run: ls -laH
