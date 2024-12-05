@@ -30,7 +30,7 @@ jobs:
       - name: Download seaurchin-llvm
         uses: actions/download-artifact@v4
         with: 
-          name: seaurchin-llvm-assert-build
+          name: seaurchin-llvm-build
           repository: seahorn/seaurchin-llvm
           github-token: ${{ secrets.seaurchin-llvm-read }}
       
@@ -38,4 +38,4 @@ jobs:
         uses: actions/checkout@v4
   
       - name: Display structure of downloaded seaurchin-llvm artefact
-          run: ls -R seaurchin-llvm-assert-build*
+          run: ls -laH
