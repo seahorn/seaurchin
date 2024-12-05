@@ -46,7 +46,7 @@ jobs:
     needs: prepare-rust-dist
     runs-on: ubuntu-22.04
     permissions:
-    packages: write
+      packages: write
     if: github.repository_owner == 'seahorn'
     steps:
     - name: Build/test rust
