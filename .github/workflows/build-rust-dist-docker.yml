@@ -26,7 +26,14 @@ jobs:
           container_name="ghcr.io/$GITHUB_REPOSITORY_OWNER/seaurchin-llvm/buildpack-deps-seaurchin"
           echo "container-name=buildpack-deps-seaurchin" >> $GITHUB_OUTPUT
           echo "container-name-tag=$container_name:latest" >> $GITHUB_OUTPUT
-    
+      
+  build-rust-dist-container:
+    needs: prepare-rust-dist
+    runs-on: ubuntu-22.04
+    permissions:
+      packages: write
+    if: github.repository_owner == 'seahorn'
+    steps:
       - name: Checkout seaurchin
         uses: actions/checkout@v4
         
@@ -47,24 +54,17 @@ jobs:
       - name: Display structure of downloaded seaurchin-llvm artefact
         run: ls -laH
       
-  build-rust-dist-container:
-    needs: prepare-rust-dist
-    runs-on: ubuntu-22.04
-    permissions:
-      packages: write
-    if: github.repository_owner == 'seahorn'
-    steps:
-    - name: Build/test rust
-      run: |
-        #sudo chown $USER:$USER /mnt/
-        RUSTFLAGS_NOT_BOOTSTRAP="-Cllvm-args=-debug-only=licm  -Cllvm-args=-licm-uses-ownsem" python x.py  --config=config.ci.toml install 
+      - name: Build/test rust
+        run: |
+        sudo chown $USER:$USER /mnt/
+        RUSTFLAGS_NOT_BOOTSTRAP="-Cllvm-args=-debug-only=licm  -Cllvm-args=-licm-uses-ownsem" ./x.py  --config=config.ci.toml install 
  
     # We need to create an archive of the build directory, because it has too
     # many files to upload.
     - name: Package Build and Source Directories
       run: |
         #tar -c . | zstd -T0 -c > seaurchin-project.tar.zst
-        tar -c install/ | zstd -T0 -c > seaurchin-dist.tar.zst
+        tar -C /mnt/ -c install/ | zstd -T0 -c > seaurchin-dist.tar.zst
 
     - name: Upload seaurchin Source
       uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 #v4.3.0

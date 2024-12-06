@@ -408,7 +408,7 @@ link-shared = false
 [install]
 
 # Where to install the generated toolchain. Must be an absolute path.
-prefix = "/home/siddharth/rust/install/usr/local"
+prefix = "/mnt/install/usr/local"
 
 # Where to install system configuration files.
 # If this is a relative path, it will get installed in `prefix` above
