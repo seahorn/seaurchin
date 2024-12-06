@@ -35,7 +35,10 @@ jobs:
           branch: dev-18
           github_token: ${{secrets.GITHUB_TOKEN}}
           path: seaurchin-llvm
-      
+
+      - name: Display structure of downloaded seaurchin-llvm artefact
+        run: ls -laHR seaurchin-llvm      
+
       - name: Unpack seaurchin-llvm build artifacts only
         run: |
           tar --zstd -C seaurchin-llvm/seaurchin-llvm-assert-build/ -xf seaurchin-llvm-assert-build.tar.zst
