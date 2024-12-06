@@ -44,9 +44,6 @@ jobs:
           tar --zstd -C seaurchin-llvm/seaurchin-llvm-assert-build/ -xf seaurchin-llvm/seaurchin-llvm-assert-build/seaurchin-llvm-assert-build.tar.zst
           rm seaurchin-llvm/seaurchin-llvm-assert-build/seaurchin-llvm-assert-build.tar.zst
 
-      - name: Display structure of downloaded seaurchin-llvm artefact
-        run: ls -laHR seaurchin-llvm
-      
       - name: Build/test rust
         run: |
           #sudo chown $USER:$USER /mnt/
