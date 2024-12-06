@@ -13,22 +13,7 @@ on:
       - 'docker/**'
 
 jobs:
-  prepare-rust-dist:
-    if: github.repository_owner == 'seahorn'
-    runs-on: ubuntu-22.04
-    permissions:
-      packages: write
-    steps:
-      - name: Write Variables
-        id: vars
-        run: |
-          tag=`date +%s`
-          container_name="ghcr.io/$GITHUB_REPOSITORY_OWNER/seaurchin-llvm/buildpack-deps-seaurchin"
-          echo "container-name=buildpack-deps-seaurchin" >> $GITHUB_OUTPUT
-          echo "container-name-tag=$container_name:latest" >> $GITHUB_OUTPUT
-
   build-rust-dist-container:
-    needs: prepare-rust-dist
     runs-on: ubuntu-22.04
     permissions:
       packages: write
