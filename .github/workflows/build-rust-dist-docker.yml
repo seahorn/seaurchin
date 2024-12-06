@@ -38,7 +38,7 @@ jobs:
       
       - name: Unpack seaurchin-llvm build artifacts only
         run: |
-          tar --zstd -xf -C seaurchin-llvm/seaurchin-llvm-assert-build/z seaurchin-llvm-assert-build.tar.zst
+          tar --zstd -xf -C seaurchin-llvm/seaurchin-llvm-assert-build/ seaurchin-llvm-assert-build.tar.zst
           rm seaurchin-llvm/seaurchin-llvm-assert-build/seaurchin-llvm-assert-build.tar.zst
 
       - name: Display structure of downloaded seaurchin-llvm artefact
