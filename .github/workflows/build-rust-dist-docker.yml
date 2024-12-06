@@ -56,8 +56,8 @@ jobs:
       
       - name: Build/test rust
         run: |
-        sudo chown $USER:$USER /mnt/
-        RUSTFLAGS_NOT_BOOTSTRAP="-Cllvm-args=-debug-only=licm  -Cllvm-args=-licm-uses-ownsem" ./x.py  --config=config.ci.toml install 
+          sudo chown $USER:$USER /mnt/
+          RUSTFLAGS_NOT_BOOTSTRAP="-Cllvm-args=-debug-only=licm  -Cllvm-args=-licm-uses-ownsem" ./x.py  --config=config.ci.toml install 
  
     # We need to create an archive of the build directory, because it has too
     # many files to upload.
