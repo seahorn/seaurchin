@@ -37,7 +37,7 @@ jobs:
           path: seaurchin-llvm
     
       - name: Display structure of downloaded seaurchin-llvm artefact
-        run: ls -laH
+        run: ls -laHR seaurchin-llvm
       
       - name: Build/test rust
         run: |
