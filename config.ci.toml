@@ -747,7 +747,7 @@ debug-logging = true
 # question and is used for determining how to compile each target.
 # =============================================================================
 [target.x86_64-unknown-linux-gnu]
-llvm-config = "seaurchin-llvm/seaurchin-llvm-assert-build/build/bin/llvm-config"
+llvm-config = "/mnt/build/bin/llvm-config"
 
 # C compiler to be used to compile C code. Note that the
 # default value is platform specific, and if not specified it may also depend on
