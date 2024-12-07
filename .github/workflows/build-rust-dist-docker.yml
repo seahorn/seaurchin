@@ -42,7 +42,7 @@ jobs:
       - name: Unpack seaurchin-llvm source
         run: |
           tar --zstd -C seaurchin-llvm/ -xf seaurchin-llvm/seaurchin-llvm-project.tar.zst
-          rm seaurchin-llvm/seaurchin-llvm-source/seaurchin-llvm-project.tar.zst
+          rm seaurchin-llvm/seaurchin-llvm-project.tar.zst
 
       - name: Build seaurchin-llvm
         run: |
