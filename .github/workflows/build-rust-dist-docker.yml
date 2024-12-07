@@ -26,7 +26,17 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.13' 
-  
+      
+      - name: Install Ninja
+        uses: llvm/actions/install-ninja@22e9f909d35b50bd1181709564bfe816eaeaae81 # main
+
+      - name: Setup sccache
+        uses: hendrikmuhs/ccache-action@ca3acd2731eef11f1572ccb126356c2f9298d35e # v1.2.9
+        with:
+          max-size: 250M
+          key: sccache-${{ runner.os }}-release
+          variant: sccache
+      
       - name: Download seaurchin-llvm latest green source
         uses: dawidd6/action-download-artifact@v7
         with: 
@@ -36,6 +46,7 @@ jobs:
           github_token: ${{secrets.GITHUB_TOKEN}}
           path: seaurchin-llvm
           name: seaurchin-llvm-source
+      
       - name: Display structure of downloaded seaurchin-llvm artefact
         run: ls -laHR seaurchin-llvm      
 
