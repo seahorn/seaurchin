@@ -41,13 +41,13 @@ jobs:
 
       - name: Unpack seaurchin-llvm source
         run: |
-          tar --zstd -C seaurchin-llvm/seaurchin-llvm-source/ -xf seaurchin-llvm/seaurchin-llvm-source/seaurchin-llvm-project.tar.zst
+          tar --zstd -C seaurchin-llvm/ -xf seaurchin-llvm/seaurchin-llvm-project.tar.zst
           rm seaurchin-llvm/seaurchin-llvm-source/seaurchin-llvm-project.tar.zst
 
       - name: Build seaurchin-llvm
         run: |
           sudo chown $USER:$USER /mnt/
-          cmake -G Ninja -C seaurchin-llvm/seaurchin-llvm-source/clang/cmake/caches/Release.cmake -DLLVM_ENABLE_ASSERTIONS=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_FORCE_ENABLE_STATS=ON -S llvm -B /mnt/build
+          cmake -G Ninja -C seaurchin-llvm/clang/cmake/caches/Release.cmake -DLLVM_ENABLE_ASSERTIONS=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_FORCE_ENABLE_STATS=ON -S llvm -B /mnt/build
           ninja -v -C /mnt/build llvm-config
 
       - name: Build/test rust
