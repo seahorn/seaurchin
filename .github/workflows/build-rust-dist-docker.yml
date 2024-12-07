@@ -58,13 +58,14 @@ jobs:
       - name: Build seaurchin-llvm
         run: |
           sudo chown $USER:$USER /mnt/
-          cmake -G Ninja -S seaurchin-llvm/llvm -C seaurchin-llvm/clang/cmake/caches/Release.cmake -DLLVM_ENABLE_ASSERTIONS=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_FORCE_ENABLE_STATS=ON -B /mnt/build
+          #cmake -G Ninja -S seaurchin-llvm/llvm -C seaurchin-llvm/clang/cmake/caches/Release.cmake -DLLVM_ENABLE_ASSERTIONS=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_FORCE_ENABLE_STATS=ON -B /mnt/build
+          cmake -G Ninja -S seaurchin-llvm/llvm -DLLVM_ENABLE_ASSERTIONS=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_FORCE_ENABLE_STATS=ON -B /mnt/build
           ninja -v -C /mnt/build
 
       - name: Build/test rust
         run: |
           #sudo chown $USER:$USER /mnt/
-          RUSTFLAGS_NOT_BOOTSTRAP="-Cllvm-args=-debug-only=licm  -Cllvm-args=-licm-uses-ownsem" python x.py  --config=config.ci.toml install 
+          RUSTFLAGS_NOT_BOOTSTRAP="-Cllvm-args=-licm-uses-ownsem -Cllvm-args=-licm-ownsem-safeset-ignores-throw" python x.py  --config=config.ci.toml install 
   
       # We need to create an archive of the build directory, because it has too
       # many files to upload.
