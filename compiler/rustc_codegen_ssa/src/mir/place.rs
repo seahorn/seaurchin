@@ -407,7 +407,7 @@ impl<'a, 'tcx, V: CodegenObject> PlaceRef<'tcx, V> {
                 ..
             } => {
                 if variant_index != untagged_variant {
-                    let niche = self.project_field(bx, tag_field);
+                    let niche = self.sea_project_field(bx, tag_field, &Some(SeaPtrKind::MutBor));
                     let niche_llty = bx.cx().immediate_backend_type(niche.layout);
                     let niche_value = variant_index.as_u32() - niche_variants.start().as_u32();
                     let niche_value = (niche_value as u128).wrapping_add(niche_start);
@@ -497,7 +497,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
         bx: &mut Bx,
         place_ref: mir::PlaceRef<'tcx>,
     ) -> PlaceRef<'tcx, Bx::Value> {
-        self.sea_codegen_place(bx, place_ref, None)
+        self.sea_codegen_place(bx, place_ref, Some(SeaPtrKind::MutBor))
     }
 
     #[instrument(level = "trace", skip(self, bx))]
@@ -512,7 +512,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
         let mut base = 0;
         let place_ty = self.monomorphized_place_ty(place_ref);
         debug!("sea_codegen_place(place_ref_ty={:?})", place_ty);
-        let mut ownsem_kind: Option<SeaPtrKind> = None;
+        let mut ownsem_kind: Option<SeaPtrKind> = addrof_kind;
         let mut cg_base: PlaceRef<'tcx, <Bx as BackendTypes>::Value> =
             match self.locals[place_ref.local] {
                 LocalRef::Place(place) => place,

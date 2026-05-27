@@ -1,4 +1,5 @@
 use super::place::{PlaceRef, PlaceValue};
+use super::SeaPtrKind;
 use super::{FunctionCx, LocalRef};
 
 use crate::size_of_val;
@@ -629,7 +630,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
 
         // for most places, to consume them we just load them
         // out from their home
-        let place = self.codegen_place(bx, place_ref);
+        let place = self.sea_codegen_place(bx, place_ref, Some(SeaPtrKind::MutBor));
         bx.load_operand(place)
     }
 

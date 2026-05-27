@@ -5,6 +5,8 @@ use tracing::instrument;
 
 use super::FunctionCx;
 use super::LocalRef;
+use super::SeaPtrKind;
+
 use crate::traits::*;
 
 impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
@@ -39,12 +41,14 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                         }
                     }
                 } else {
-                    let cg_dest = self.codegen_place(bx, place.as_ref());
+                    let cg_dest =
+                        self.sea_codegen_place(bx, place.as_ref(), Some(SeaPtrKind::MutBor));
                     self.codegen_rvalue(bx, cg_dest, rvalue);
                 }
             }
             mir::StatementKind::SetDiscriminant { box ref place, variant_index } => {
-                self.codegen_place(bx, place.as_ref()).codegen_set_discr(bx, variant_index);
+                self.sea_codegen_place(bx, place.as_ref(), Some(SeaPtrKind::MutBor))
+                    .codegen_set_discr(bx, variant_index);
             }
             mir::StatementKind::Deinit(..) => {
                 // For now, don't codegen this to anything. In the future it may be worth
