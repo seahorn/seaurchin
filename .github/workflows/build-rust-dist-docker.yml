@@ -82,7 +82,7 @@ jobs:
         run: python3 x.py --config=config.ci.toml install
 
       - name: Run Rust UI tests
-        run: python3 x.py test tests/ui --config=config.ci.toml --bless
+        run: python3 x.py --config=config.ci.toml --target x86_64-unknown-linux-gnu test tests/ui
 
       - name: sccache stats
         if: always()
