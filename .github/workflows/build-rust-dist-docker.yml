@@ -23,9 +23,6 @@ jobs:
     env:
       LLVM_ARTIFACT_DIR: seaurchin-llvm
       LLVM_ARTIFACT_FILE: seaurchin-llvm-assert-install-dev18.tar.zst
-      RUSTC_WRAPPER: sccache
-      SCCACHE_DIR: ${{ github.workspace }}/.sccache
-      SCCACHE_CACHE_SIZE: 8G
       CARGO_INCREMENTAL: "0"
       RUSTFLAGS_NOT_BOOTSTRAP: >-
         -Cllvm-args=-licm-uses-ownsem
@@ -50,14 +47,6 @@ jobs:
             src/tools/cargo \
             library/backtrace \
             library/stdarch
-
-      - name: Restore sccache
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/.sccache
-          key: sccache-${{ runner.os }}-rust-${{ github.sha }}
-          restore-keys: |
-            sccache-${{ runner.os }}-rust-
 
       - name: Get latest successful run ID from seaurchin-llvm
         id: get_seaurchin_llvm_run
@@ -98,10 +87,6 @@ jobs:
 
       - name: Run Rust UI tests
         run: python3 x.py --config=config.ci.toml --target x86_64-unknown-linux-gnu test tests/ui
-
-      - name: sccache stats
-        if: always()
-        run: sccache --show-stats || true
 
       - name: Package seaurchin dist
         run: tar -C /tmp/mnt/ -c install/ | zstd -T0 -c > seaurchin-dist.tar.zst
