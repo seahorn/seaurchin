@@ -36,6 +36,21 @@ jobs:
       - name: Checkout seaurchin
         uses: actions/checkout@v4
 
+      - name: Init required submodules
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git submodule update --init --depth 1 \
+            src/doc/book \
+            src/doc/nomicon \
+            src/doc/reference \
+            src/doc/rust-by-example \
+            src/doc/embedded-book \
+            src/doc/edition-guide \
+            src/doc/rustc-dev-guide \
+            src/tools/cargo \
+            library/backtrace \
+            library/stdarch
+
       - name: Restore sccache
         uses: actions/cache@v4
         with:
