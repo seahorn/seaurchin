@@ -1,4 +1,3 @@
-
 name: Build Rust Dist Container
 
 permissions:
@@ -6,36 +5,45 @@ permissions:
 
 on:
   workflow_dispatch:
+  push:
     branches:
       - dev-18
-    paths:
-      - .github/workflows/build-rust-dist-docker.yml
-      - 'docker/**'
 
 jobs:
   build-rust-dist:
     if: github.repository_owner == 'seahorn'
-    runs-on: self-hosted
+    runs-on: seaurchin-big
+    container:
+      image: ghcr.io/seahorn/seaurchin-llvm/buildpack-deps-seaurchin:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     permissions:
       packages: write
-    steps:  
+    env:
+      LLVM_ARTIFACT_DIR: seaurchin-llvm
+      LLVM_ARTIFACT_FILE: seaurchin-llvm-assert-install-dev18.tar.zst
+      RUSTC_WRAPPER: sccache
+      SCCACHE_DIR: ${{ github.workspace }}/.sccache
+      SCCACHE_CACHE_SIZE: 8G
+      CARGO_INCREMENTAL: "0"
+      RUSTFLAGS_NOT_BOOTSTRAP: >-
+        -Cllvm-args=-licm-uses-ownsem
+        -Cllvm-args=-licm-ownsem-safeset-ignores-throw
+        -Cllvm-args=-licm-ownsem-safeset-store-threadsafe
+
+    steps:
       - name: Checkout seaurchin
         uses: actions/checkout@v4
-        
-      # - name: Install python3
-      #   uses: actions/setup-python@v5
-      #   with:
-      #     python-version: '3.13' 
-      
-      # - name: Install Ninja
-      #   uses: llvm/actions/install-ninja@22e9f909d35b50bd1181709564bfe816eaeaae81 # main
 
-      # - name: Setup sccache
-      #   uses: hendrikmuhs/ccache-action@ca3acd2731eef11f1572ccb126356c2f9298d35e # v1.2.9
-      #   with:
-      #     max-size: 250M
-      #     key: sccache-${{ runner.os }}-release
-      #     variant: sccache
+      - name: Restore sccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.sccache
+          key: sccache-${{ runner.os }}-rust-${{ github.sha }}
+          restore-keys: |
+            sccache-${{ runner.os }}-rust-
+
       - name: Get latest successful run ID from seaurchin-llvm
         id: get_seaurchin_llvm_run
         uses: actions/github-script@v7
@@ -59,77 +67,33 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: seaurchin-llvm-assert-install
-          path: seaurchin-llvm
+          path: ${{ env.LLVM_ARTIFACT_DIR }}
           run-id: ${{ steps.get_seaurchin_llvm_run.outputs.run_id }}
           repository: seahorn/seaurchin-llvm
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      
-      # - name: Download seaurchin-llvm latest green source
-      #   uses: dawidd6/action-download-artifact@v7
-      #   with: 
-      #     repo: seahorn/seaurchin-llvm
-      #     workflow: build-seaurchin-llvm-assert-bin.yml
-      #     branch: dev-18
-      #     github_token: ${{secrets.GITHUB_TOKEN}}
-      #     path: seaurchin-llvm
-      #     name: seaurchin-llvm-source
-
-      # - name: Download seaurchin-llvm latest install
-      #   uses: actions/download-artifact@v4
-      #   with: 
-      #     repository: seahorn/seaurchin-llvm
-      #     #workflow: build-seaurchin-llvm-assert-bin.yml
-      #     #branch: dev-18
-      #     github_token: ${{secrets.GITHUB_TOKEN}}
-      #     path: seaurchin-llvm
-      #     name: seaurchin-llvm-assert-install
-      
-      - name: Display structure of downloaded seaurchin-llvm artefact
-        run: ls -laHR seaurchin-llvm      
-
-      # - name: Unpack seaurchin-llvm source
-      #   run: |
-      #     tar --zstd -C seaurchin-llvm/ -xf seaurchin-llvm/seaurchin-llvm-project.tar.zst
-      #     rm seaurchin-llvm/seaurchin-llvm-project.tar.zst
 
       - name: Unpack seaurchin-llvm install
         run: |
           mkdir -p /tmp/mnt
-          tar --zstd -C seaurchin-llvm -xf seaurchin-llvm/seaurchin-llvm-assert-install.tar.zst
-          rm seaurchin-llvm/seaurchin-llvm-assert-install.tar.zst
-          
-      # - name: Build seaurchin-llvm
-      #   run: |
-      #     mkdir /tmp/mnt
-      #     #sudo chown $USER:$USER /mnt/
-      #     #cmake -G Ninja -S seaurchin-llvm/llvm -C seaurchin-llvm/clang/cmake/caches/Release.cmake -DLLVM_ENABLE_ASSERTIONS=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_FORCE_ENABLE_STATS=ON -B /mnt/build
-      #     cmake -G Ninja -S seaurchin-llvm/llvm -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLLVM_ENABLE_ASSERTIONS=ON -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_FORCE_ENABLE_STATS=ON  -DLLVM_INSTALL_UTILS=ON -DLLVM_ENABLE_ZSTD=No -DCMAKE_INSTALL_PREFIX=/tmp/mnt/install -B /tmp/mnt/build
-      #     ninja -v -C /tmp/mnt/build
-      #     ninja -v -C /tmp/mnt/build install
-          
-      - name: Build/test rust
-        run: |
-          #sudo chown $USER:$USER /tmp/mnt/
-          RUSTFLAGS_NOT_BOOTSTRAP="-Cllvm-args=-licm-uses-ownsem -Cllvm-args=-licm-ownsem-safeset-ignores-throw" python x.py  --config=config.ci.toml install 
-  
-      # # We need to create an archive of the build directory, because it has too
-      # # many files to upload.
-      # - name: Package Build and Source Directories
-      #   run: |
-      #     tar -c . | zstd -T0 -c > seaurchin-project.tar.zst
-      #     tar -C /tmp/mnt/ -c install/ | zstd -T0 -c > seaurchin-dist.tar.zst
+          tar --zstd -C "$LLVM_ARTIFACT_DIR" -xf "$LLVM_ARTIFACT_DIR/$LLVM_ARTIFACT_FILE"
+          rm "$LLVM_ARTIFACT_DIR/$LLVM_ARTIFACT_FILE"
 
-      # - name: Upload seaurchin Source
-      #   uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 #v4.3.0
-      #   with:
-      #     name: seaurchin-source
-      #     path: seaurchin-project.tar.zst
-      #     retention-days: 2
+      - name: Build Rust
+        run: python3 x.py --config=config.ci.toml install
 
-      # - name: Upload seaurchin-install Dir
-      #   uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 #v4.3.0
-      #   with:
-      #     name: seaurchin-dist
-      #     path: seaurchin-dist.tar.zst
-      #     retention-days: 2
-   
+      - name: Run Rust UI tests
+        run: python3 x.py test tests/ui --config=config.ci.toml --bless
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats || true
+
+      - name: Package seaurchin dist
+        run: tar -C /tmp/mnt/ -c install/ | zstd -T0 -c > seaurchin-dist.tar.zst
+
+      - name: Upload seaurchin dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: seaurchin-dist
+          path: seaurchin-dist.tar.zst
+          retention-days: 30
