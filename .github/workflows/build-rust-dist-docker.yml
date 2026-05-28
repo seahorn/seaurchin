@@ -20,6 +20,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     permissions:
       packages: write
+      contents: write
     env:
       LLVM_ARTIFACT_DIR: seaurchin-llvm
       LLVM_ARTIFACT_FILE: seaurchin-llvm-assert-install-dev18.tar.zst
@@ -97,3 +98,45 @@ jobs:
           name: seaurchin-dist
           path: seaurchin-dist.tar.zst
           retention-days: 30
+
+      - name: Delete previous dev-18-latest release and tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = 'dev-18-latest';
+            try {
+              const release = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag,
+              });
+              await github.rest.repos.deleteRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.data.id,
+              });
+            } catch (e) {
+              if (e.status !== 404) throw e;
+            }
+            try {
+              await github.rest.git.deleteRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `tags/${tag}`,
+              });
+            } catch (e) {
+              if (e.status !== 422) throw e;
+            }
+
+      - name: Publish seaurchin dist as release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dev-18-latest
+          target_commitish: ${{ github.sha }}
+          name: seaurchin dist (dev-18 rolling)
+          body: |
+            Rolling build of seaurchin dist from branch `dev-18`.
+            Built from commit ${{ github.sha }}.
+          prerelease: true
+          make_latest: false
+          files: seaurchin-dist.tar.zst
