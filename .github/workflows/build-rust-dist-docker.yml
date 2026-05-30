@@ -95,7 +95,8 @@ jobs:
         run: |
           mkdir -p /tmp/mnt
           tar --zstd -C "$LLVM_ARTIFACT_DIR" -xf "$LLVM_ARTIFACT_DIR/$LLVM_ARTIFACT_FILE"
-          rm "$LLVM_ARTIFACT_DIR/$LLVM_ARTIFACT_FILE"
+          # Move (not delete) the tarball so the release-publish step can attach it.
+          mv "$LLVM_ARTIFACT_DIR/$LLVM_ARTIFACT_FILE" /tmp/
 
       - name: Build Rust
         run: python3 x.py --config=config.ci.toml install
@@ -157,3 +158,4 @@ jobs:
             seaurchin-dist.tar.zst
             /tmp/rust-source.tar.zst
             /tmp/llvm-source/seaurchin-llvm-project.tar.zst
+            /tmp/${{ env.LLVM_ARTIFACT_FILE }}
