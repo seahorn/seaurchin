@@ -10,7 +10,7 @@ on:
       - dev-18
 
 jobs:
-  build-rust-dist:
+  build-rust:
     if: github.repository_owner == 'seahorn'
     runs-on: seaurchin-big
     container:
@@ -19,8 +19,10 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     permissions:
-      packages: write
-      contents: write
+      packages: read
+      contents: read
+    outputs:
+      seaurchin_llvm_run_id: ${{ steps.get_seaurchin_llvm_run.outputs.run_id }}
     env:
       LLVM_ARTIFACT_DIR: seaurchin-llvm
       LLVM_ARTIFACT_FILE: seaurchin-llvm-assert-install-dev18.tar.zst
@@ -48,11 +50,6 @@ jobs:
             src/tools/cargo \
             library/backtrace \
             library/stdarch
-
-      - name: Package Rust source
-        run: |
-          tar -C "$GITHUB_WORKSPACE" -c . \
-            | zstd -T0 -c > /tmp/rust-source.tar.zst
 
       - name: Get latest successful run ID from seaurchin-llvm
         id: get_seaurchin_llvm_run
@@ -82,21 +79,10 @@ jobs:
           repository: seahorn/seaurchin-llvm
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download seaurchin-llvm source artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: seaurchin-llvm-source
-          path: /tmp/llvm-source
-          run-id: ${{ steps.get_seaurchin_llvm_run.outputs.run_id }}
-          repository: seahorn/seaurchin-llvm
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Unpack seaurchin-llvm install
         run: |
-          mkdir -p /tmp/mnt
           tar --zstd -C "$LLVM_ARTIFACT_DIR" -xf "$LLVM_ARTIFACT_DIR/$LLVM_ARTIFACT_FILE"
-          # Move (not delete) the tarball so the release-publish step can attach it.
-          mv "$LLVM_ARTIFACT_DIR/$LLVM_ARTIFACT_FILE" /tmp/
+          rm "$LLVM_ARTIFACT_DIR/$LLVM_ARTIFACT_FILE"
 
       - name: Build Rust
         run: python3 x.py --config=config.ci.toml install
@@ -104,58 +90,97 @@ jobs:
       - name: Run Rust UI tests
         run: python3 x.py --config=config.ci.toml --stage 2 --target x86_64-unknown-linux-gnu test tests/ui
 
-      - name: Package seaurchin dist
-        run: tar -C /tmp/mnt/ -c install/ | zstd -T0 -c > seaurchin-dist.tar.zst
-
-      - name: Upload seaurchin dist
+      - name: Upload rust install
         uses: actions/upload-artifact@v4
         with:
-          name: seaurchin-dist
-          path: seaurchin-dist.tar.zst
-          retention-days: 30
+          name: rust-install
+          path: /tmp/mnt/install
+          retention-days: 1
+          if-no-files-found: error
 
-      - name: Delete previous dev-18-latest release and tag
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const tag = 'dev-18-latest';
-            try {
-              const release = await github.rest.repos.getReleaseByTag({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                tag,
-              });
-              await github.rest.repos.deleteRelease({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                release_id: release.data.id,
-              });
-            } catch (e) {
-              if (e.status !== 404) throw e;
-            }
-            try {
-              await github.rest.git.deleteRef({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                ref: `tags/${tag}`,
-              });
-            } catch (e) {
-              if (e.status !== 422) throw e;
-            }
+  push-toolchain-image:
+    needs: build-rust
+    if: github.repository_owner == 'seahorn'
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    env:
+      LLVM_ARTIFACT_DIR: seaurchin-llvm
+      LLVM_ARTIFACT_FILE: seaurchin-llvm-assert-install-dev18.tar.zst
 
-      - name: Publish seaurchin dist as release asset
-        uses: softprops/action-gh-release@v2
+    steps:
+      - name: Checkout seaurchin
+        uses: actions/checkout@v4
+
+      - name: Init required submodules
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git submodule update --init --depth 1 \
+            src/doc/book \
+            src/doc/nomicon \
+            src/doc/reference \
+            src/doc/rust-by-example \
+            src/doc/embedded-book \
+            src/doc/edition-guide \
+            src/doc/rustc-dev-guide \
+            src/tools/cargo \
+            library/backtrace \
+            library/stdarch
+
+      - name: Download seaurchin-llvm-install artifact
+        uses: actions/download-artifact@v4
         with:
-          tag_name: dev-18-latest
-          target_commitish: ${{ github.sha }}
-          name: seaurchin dist (dev-18 rolling)
-          body: |
-            Rolling build of seaurchin dist from branch `dev-18`.
-            Built from commit ${{ github.sha }}.
-          prerelease: true
-          make_latest: false
-          files: |
-            seaurchin-dist.tar.zst
-            /tmp/rust-source.tar.zst
-            /tmp/llvm-source/seaurchin-llvm-project.tar.zst
-            /tmp/${{ env.LLVM_ARTIFACT_FILE }}
+          name: seaurchin-llvm-assert-install
+          path: ${{ env.LLVM_ARTIFACT_DIR }}
+          run-id: ${{ needs.build-rust.outputs.seaurchin_llvm_run_id }}
+          repository: seahorn/seaurchin-llvm
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download seaurchin-llvm source artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: seaurchin-llvm-source
+          path: /tmp/llvm-source
+          run-id: ${{ needs.build-rust.outputs.seaurchin_llvm_run_id }}
+          repository: seahorn/seaurchin-llvm
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Unpack seaurchin-llvm install
+        run: |
+          tar --zstd -C "$LLVM_ARTIFACT_DIR" -xf "$LLVM_ARTIFACT_DIR/$LLVM_ARTIFACT_FILE"
+          rm "$LLVM_ARTIFACT_DIR/$LLVM_ARTIFACT_FILE"
+
+      - name: Download rust install (from build-rust job)
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-install
+          path: /tmp/mnt/install
+
+      - name: Stage empty docker context
+        run: mkdir -p /tmp/empty-ctx
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push seaurchin-toolchain image
+        uses: docker/build-push-action@v5
+        with:
+          context: /tmp/empty-ctx
+          file: ${{ github.workspace }}/.github/Dockerfile.toolchain
+          build-contexts: |
+            rust-install=/tmp/mnt/install
+            llvm-install=${{ github.workspace }}/seaurchin-llvm/install
+            rust-source=${{ github.workspace }}
+            llvm-source-archive=/tmp/llvm-source
+          push: true
+          tags: |
+            ghcr.io/seahorn/seaurchin-toolchain:dev-18-latest
+            ghcr.io/seahorn/seaurchin-toolchain:dev-18-${{ github.sha }}

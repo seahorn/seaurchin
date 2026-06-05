@@ -1,0 +1,28 @@
+FROM ghcr.io/seahorn/seaurchin-llvm/buildpack-deps-seaurchin:latest
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl zstd && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN useradd -ms /bin/bash usea
+
+COPY --from=llvm-install / /home/usea/rust/seaurchin-llvm/install/
+COPY --from=rust-install / /seaurchin/install/usr/local/
+COPY --from=rust-source  / /home/usea/rust/
+
+COPY --from=llvm-source-archive /seaurchin-llvm-project.tar.zst /tmp/
+RUN mkdir -p /home/usea/llvm-project && \
+    tar --zstd -xf /tmp/seaurchin-llvm-project.tar.zst -C /home/usea/llvm-project && \
+    rm /tmp/seaurchin-llvm-project.tar.zst
+
+RUN chown -R usea:usea /home/usea
+
+USER usea
+WORKDIR /home/usea
+
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && \
+    . "$HOME/.cargo/env" && \
+    rustup component add rustfmt clippy && \
+    rustup toolchain link seaurchin /seaurchin/install/usr/local && \
+    rustup default seaurchin
+ENV PATH="/home/usea/.cargo/bin:$PATH"
