@@ -176,7 +176,7 @@ jobs:
           context: /tmp/empty-ctx
           file: ${{ github.workspace }}/.github/Dockerfile.toolchain
           build-contexts: |
-            rust-install=/tmp/mnt/install
+            rust-install=/tmp/mnt/install/usr/local
             llvm-install=${{ github.workspace }}/seaurchin-llvm/install
             rust-source=${{ github.workspace }}
             llvm-source-archive=/tmp/llvm-source
