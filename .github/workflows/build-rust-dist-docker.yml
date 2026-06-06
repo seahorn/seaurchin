@@ -90,11 +90,14 @@ jobs:
       - name: Run Rust UI tests
         run: python3 x.py --config=config.ci.toml --stage 2 --target x86_64-unknown-linux-gnu test tests/ui
 
+      - name: Package rust install
+        run: tar -C /tmp/mnt -c install/ | zstd -T0 -c > /tmp/rust-install.tar.zst
+
       - name: Upload rust install
         uses: actions/upload-artifact@v4
         with:
           name: rust-install
-          path: /tmp/mnt/install
+          path: /tmp/rust-install.tar.zst
           retention-days: 1
           if-no-files-found: error
 
@@ -155,7 +158,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: rust-install
-          path: /tmp/mnt/install
+          path: /tmp/rust-install-archive
+
+      - name: Unpack rust install
+        run: |
+          mkdir -p /tmp/mnt
+          tar --zstd -C /tmp/mnt -xf /tmp/rust-install-archive/rust-install.tar.zst
+          rm -rf /tmp/rust-install-archive
 
       - name: Stage empty docker context
         run: mkdir -p /tmp/empty-ctx
