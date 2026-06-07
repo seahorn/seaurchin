@@ -10,19 +10,12 @@ on:
       - dev-18
 
 jobs:
-  build-rust:
+  build-and-push:
     if: github.repository_owner == 'seahorn'
     runs-on: seaurchin-big
-    container:
-      image: ghcr.io/seahorn/seaurchin-llvm/buildpack-deps-seaurchin:latest
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     permissions:
-      packages: read
+      packages: write
       contents: read
-    outputs:
-      seaurchin_llvm_run_id: ${{ steps.get_seaurchin_llvm_run.outputs.run_id }}
     env:
       LLVM_ARTIFACT_DIR: seaurchin-llvm
       LLVM_ARTIFACT_FILE: seaurchin-llvm-assert-install-dev18.tar.zst
@@ -50,6 +43,9 @@ jobs:
             src/tools/cargo \
             library/backtrace \
             library/stdarch
+
+      - name: Reset scratch dirs from prior runs
+        run: rm -rf /tmp/mnt /tmp/llvm-source
 
       - name: Get latest successful run ID from seaurchin-llvm
         id: get_seaurchin_llvm_run
@@ -79,6 +75,15 @@ jobs:
           repository: seahorn/seaurchin-llvm
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Download seaurchin-llvm-source artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: seaurchin-llvm-source
+          path: /tmp/llvm-source
+          run-id: ${{ steps.get_seaurchin_llvm_run.outputs.run_id }}
+          repository: seahorn/seaurchin-llvm
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Unpack seaurchin-llvm install
         run: |
           tar --zstd -C "$LLVM_ARTIFACT_DIR" -xf "$LLVM_ARTIFACT_DIR/$LLVM_ARTIFACT_FILE"
@@ -89,82 +94,6 @@ jobs:
 
       - name: Run Rust UI tests
         run: python3 x.py --config=config.ci.toml --stage 2 --target x86_64-unknown-linux-gnu test tests/ui
-
-      - name: Package rust install
-        run: tar -C /tmp/mnt -c install/ | zstd -T0 -c > /tmp/rust-install.tar.zst
-
-      - name: Upload rust install
-        uses: actions/upload-artifact@v4
-        with:
-          name: rust-install
-          path: /tmp/rust-install.tar.zst
-          retention-days: 1
-          if-no-files-found: error
-
-  push-toolchain-image:
-    needs: build-rust
-    if: github.repository_owner == 'seahorn'
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      contents: read
-    env:
-      LLVM_ARTIFACT_DIR: seaurchin-llvm
-      LLVM_ARTIFACT_FILE: seaurchin-llvm-assert-install-dev18.tar.zst
-
-    steps:
-      - name: Checkout seaurchin
-        uses: actions/checkout@v4
-
-      - name: Init required submodules
-        run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          git submodule update --init --depth 1 \
-            src/doc/book \
-            src/doc/nomicon \
-            src/doc/reference \
-            src/doc/rust-by-example \
-            src/doc/embedded-book \
-            src/doc/edition-guide \
-            src/doc/rustc-dev-guide \
-            src/tools/cargo \
-            library/backtrace \
-            library/stdarch
-
-      - name: Download seaurchin-llvm-install artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: seaurchin-llvm-assert-install
-          path: ${{ env.LLVM_ARTIFACT_DIR }}
-          run-id: ${{ needs.build-rust.outputs.seaurchin_llvm_run_id }}
-          repository: seahorn/seaurchin-llvm
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download seaurchin-llvm source artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: seaurchin-llvm-source
-          path: /tmp/llvm-source
-          run-id: ${{ needs.build-rust.outputs.seaurchin_llvm_run_id }}
-          repository: seahorn/seaurchin-llvm
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Unpack seaurchin-llvm install
-        run: |
-          tar --zstd -C "$LLVM_ARTIFACT_DIR" -xf "$LLVM_ARTIFACT_DIR/$LLVM_ARTIFACT_FILE"
-          rm "$LLVM_ARTIFACT_DIR/$LLVM_ARTIFACT_FILE"
-
-      - name: Download rust install (from build-rust job)
-        uses: actions/download-artifact@v4
-        with:
-          name: rust-install
-          path: /tmp/rust-install-archive
-
-      - name: Unpack rust install
-        run: |
-          mkdir -p /tmp/mnt
-          tar --zstd -C /tmp/mnt -xf /tmp/rust-install-archive/rust-install.tar.zst
-          rm -rf /tmp/rust-install-archive
 
       - name: Stage empty docker context
         run: mkdir -p /tmp/empty-ctx
